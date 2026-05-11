@@ -1,102 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { Plus, Trash2 } from 'lucide-vue-next'
-import Button from './ui/button/Button.vue'
-import Card from './ui/card/Card.vue'
-import CardContent from './ui/card/CardContent.vue'
-import CardDescription from './ui/card/CardDescription.vue'
-import CardHeader from './ui/card/CardHeader.vue'
-import CardTitle from './ui/card/CardTitle.vue'
-import Input from './ui/input/Input.vue'
-import Label from './ui/label/Label.vue'
-import { useQuizStore } from '../stores/quiz'
-
-type DraftRound = {
-  id: string
-  title: string
-  maxScore: string
-  questionsCount: string
-}
+import { Button } from '~/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
+import { Input } from '~/components/ui/input'
+import { Label } from '~/components/ui/label'
+import { useGameSetupForm } from '~/composables/useGameSetupForm'
+import { useQuizStore } from '~/stores/quiz'
 
 const router = useRouter()
 const quizStore = useQuizStore()
-
-const title = ref('Квиз')
-const teamNames = ref([
-  { id: createDraftId(), name: 'Команда 1' },
-  { id: createDraftId(), name: 'Команда 2' }
-])
-const rounds = ref<DraftRound[]>([
-  { id: createDraftId(), title: 'Раунд 1', maxScore: '', questionsCount: '' },
-  { id: createDraftId(), title: 'Раунд 2', maxScore: '', questionsCount: '' }
-])
-const error = ref('')
-
-function addTeam(): void {
-  teamNames.value.push({ id: createDraftId(), name: `Команда ${teamNames.value.length + 1}` })
-}
-
-function removeTeam(id: string): void {
-  if (teamNames.value.length > 1) {
-    teamNames.value = teamNames.value.filter((team) => team.id !== id)
-  }
-}
-
-function addRound(): void {
-  rounds.value.push({
-    id: createDraftId(),
-    title: `Раунд ${rounds.value.length + 1}`,
-    maxScore: '',
-    questionsCount: ''
-  })
-}
-
-function removeRound(id: string): void {
-  if (rounds.value.length > 1) {
-    rounds.value = rounds.value.filter((round) => round.id !== id)
-  }
-}
-
-function createGame(): void {
-  const teamValues = teamNames.value.map((team) => team.name.trim()).filter(Boolean)
-  const roundValues = rounds.value
-    .map((round) => ({
-      title: round.title.trim(),
-      maxScore: parseOptionalNumber(round.maxScore),
-      questionsCount: parseOptionalNumber(round.questionsCount)
-    }))
-    .filter((round) => round.title)
-
-  if (!title.value.trim()) {
-    error.value = 'Введите название игры.'
-    return
-  }
-
-  if (teamValues.length < 1 || teamValues.length !== teamNames.value.length) {
-    error.value = 'Добавьте минимум одну команду и заполните все названия команд.'
-    return
-  }
-
-  if (roundValues.length < 1 || roundValues.length !== rounds.value.length) {
-    error.value = 'Добавьте минимум один раунд и заполните все названия раундов.'
-    return
-  }
-
-  quizStore.createGame({
-    title: title.value,
-    teamNames: teamValues,
-    rounds: roundValues
-  })
-  router.push('/game')
-}
-
-function parseOptionalNumber(value: string): number | null {
-  return value === '' ? null : Math.max(0, Number(value))
-}
-
-function createDraftId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
+const { title, teamNames, rounds, error, addTeam, removeTeam, addRound, removeRound, createGame } = useGameSetupForm({
+  createGame: quizStore.createGame,
+  navigateToGame: () => router.push('/game')
+})
 </script>
 
 <template>

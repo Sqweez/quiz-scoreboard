@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import type { HTMLAttributes } from 'vue'
 import { cn } from '../../../utils/cn'
 
-const props = withDefaults(defineProps<{ class?: string }>(), { class: '' })
-const classes = computed(() => cn('flex items-center p-6 pt-0', props.class))
+const props = defineProps<{
+  class?: HTMLAttributes['class']
+}>()
 </script>
 
 <template>
-  <div :class="classes">
+  <div data-slot="card-footer" :class="cn('flex items-center px-6 [.border-t&]:pt-6', props.class)">
     <slot />
   </div>
 </template>

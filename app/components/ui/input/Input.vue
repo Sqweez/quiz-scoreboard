@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import type { HTMLAttributes } from 'vue'
 import { cn } from '../../../utils/cn'
 
 const model = defineModel<string | number | null>()
@@ -7,19 +7,11 @@ const model = defineModel<string | number | null>()
 const props = withDefaults(
   defineProps<{
     type?: string
-    class?: string
+    class?: HTMLAttributes['class']
   }>(),
   {
-    type: 'text',
-    class: ''
+    type: 'text'
   }
-)
-
-const classes = computed(() =>
-  cn(
-    'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-    props.class
-  )
 )
 
 function preventNativeNumberStep(event: KeyboardEvent): void {
@@ -38,8 +30,9 @@ function preventWheelStep(event: WheelEvent): void {
 <template>
   <input
     v-model="model"
+    data-slot="input"
     :type="type"
-    :class="classes"
+    :class="cn('file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 aria-invalid:border-destructive', props.class)"
     @keydown="preventNativeNumberStep"
     @wheel="preventWheelStep"
   >

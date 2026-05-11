@@ -1,18 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ArrowLeft, ListChecks, Medal, RotateCcw, Trophy, Users } from 'lucide-vue-next'
-import Button from '../components/ui/button/Button.vue'
-import Card from '../components/ui/card/Card.vue'
-import CardContent from '../components/ui/card/CardContent.vue'
-import CardDescription from '../components/ui/card/CardDescription.vue'
-import CardHeader from '../components/ui/card/CardHeader.vue'
-import CardTitle from '../components/ui/card/CardTitle.vue'
-import Input from '../components/ui/input/Input.vue'
-import Label from '../components/ui/label/Label.vue'
+import { Button } from '~/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
+import { Input } from '~/components/ui/input'
+import { Label } from '~/components/ui/label'
 import RoundsEditor from '../components/RoundsEditor.vue'
 import ScoreTable from '../components/ScoreTable.vue'
 import TeamsEditor from '../components/TeamsEditor.vue'
-import { useQuizStore } from '../stores/quiz'
+import { useQuizStore } from '~/stores/quiz'
 
 const quizStore = useQuizStore()
 const titleError = ref('')

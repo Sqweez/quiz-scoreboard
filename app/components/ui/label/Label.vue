@@ -1,21 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import type { HTMLAttributes } from 'vue'
+import { Label as LabelPrimitive } from 'reka-ui'
 import { cn } from '../../../utils/cn'
 
-const props = withDefaults(
-  defineProps<{
-    class?: string
-  }>(),
-  {
-    class: ''
-  }
-)
-
-const classes = computed(() => cn('text-sm font-medium leading-none', props.class))
+const props = defineProps<{
+  class?: HTMLAttributes['class']
+}>()
 </script>
 
 <template>
-  <label :class="classes">
+  <LabelPrimitive data-slot="label" :class="cn('flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50', props.class)">
     <slot />
-  </label>
+  </LabelPrimitive>
 </template>

@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import type { HTMLAttributes } from 'vue'
 import { cn } from '../../../utils/cn'
 
-const props = withDefaults(defineProps<{ class?: string }>(), { class: '' })
-const classes = computed(() => cn('w-full caption-bottom text-sm', props.class))
+const props = defineProps<{
+  class?: HTMLAttributes['class']
+}>()
 </script>
 
 <template>
-  <div class="relative w-full overflow-auto">
-    <table :class="classes">
+  <div data-slot="table-container" class="relative w-full overflow-x-auto">
+    <table data-slot="table" :class="cn('w-full caption-bottom text-sm', props.class)">
       <slot />
     </table>
   </div>

@@ -1,13 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { Plus, Trash2 } from 'lucide-vue-next'
-import Button from './ui/button/Button.vue'
-import Card from './ui/card/Card.vue'
-import CardContent from './ui/card/CardContent.vue'
-import CardHeader from './ui/card/CardHeader.vue'
-import CardTitle from './ui/card/CardTitle.vue'
-import Input from './ui/input/Input.vue'
-import Label from './ui/label/Label.vue'
+import { Button } from '~/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
+import { Input } from '~/components/ui/input'
+import { Label } from '~/components/ui/label'
 import { useQuizStore } from '../stores/quiz'
 
 const quizStore = useQuizStore()

@@ -1,5 +1,5 @@
-import type { Round, Team } from "../types/quiz";
-import { getRoundScore, getTeamTotal } from "./scoring";
+import type { Round, Team } from '#shared/quiz'
+import { getRoundScore, getTeamTotal } from '#shared/quiz'
 
 export function exportResultsToTsv(teams: Team[], rounds: Round[]): string {
   const rows = teams.map((team, index) => [

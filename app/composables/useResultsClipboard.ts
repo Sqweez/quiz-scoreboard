@@ -1,5 +1,5 @@
 import { computed, onBeforeUnmount, ref } from "vue";
-import type { Round, Team } from "../types/quiz";
+import type { Round, Team } from '#shared/quiz'
 import { exportResultsToTsv } from "../utils/resultsExport";
 
 export function useResultsClipboard() {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ArrowLeft, ListChecks, Medal, RotateCcw, Trophy, Users } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
@@ -12,6 +12,7 @@ import { useQuizStore } from '~/stores/quiz'
 
 const quizStore = useQuizStore()
 const titleError = ref('')
+const route = useRoute()
 
 definePageMeta({
   middleware: 'auth'
@@ -23,8 +24,15 @@ const teamsCount = computed(() => quizStore.currentGame?.teams.length ?? 0)
 const roundsCount = computed(() => quizStore.currentGame?.rounds.length ?? 0)
 
 onMounted(async () => {
-  await quizStore.loadGame()
+  await quizStore.loadGame(String(route.query.gameId ?? ''))
 })
+
+watch(
+  () => route.query.gameId,
+  async (gameId) => {
+    await quizStore.loadGame(String(gameId ?? ''))
+  }
+)
 
 function updateTitle(value: string | number | null): void {
   const title = String(value ?? '')
@@ -58,7 +66,7 @@ async function resetGame(): Promise<void> {
                 </Button>
               </NuxtLink>
               <span class="rounded-full border bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-                Активная игра
+                {{ route.query.gameId ? 'Выбранная игра' : 'Активная игра' }}
               </span>
             </div>
 

@@ -11,7 +11,7 @@ const router = useRouter()
 const quizStore = useQuizStore()
 const { title, teamNames, rounds, error, addTeam, removeTeam, addRound, removeRound, createGame } = useGameSetupForm({
   createGame: quizStore.createGame,
-  navigateToGame: () => router.push('/game')
+  navigateToGame: (game) => router.push({ path: '/game', query: { gameId: game.id } })
 })
 </script>
 

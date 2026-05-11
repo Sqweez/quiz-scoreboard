@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import type { Game } from '#shared/quiz'
 
 export type DraftTeam = {
   id: string
@@ -25,8 +26,8 @@ type CreateGamePayload = {
 }
 
 type UseGameSetupFormOptions = {
-  createGame: (payload: CreateGamePayload) => Promise<unknown>
-  navigateToGame: () => Promise<unknown> | unknown
+  createGame: (payload: CreateGamePayload) => Promise<Game>
+  navigateToGame: (game: Game) => Promise<unknown> | unknown
 }
 
 export function useGameSetupForm(options: UseGameSetupFormOptions) {
@@ -92,12 +93,12 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     }
 
     try {
-      await options.createGame({
+      const game = await options.createGame({
         title: title.value,
         teamNames: teamValues,
         rounds: roundValues
       })
-      await options.navigateToGame()
+      await options.navigateToGame(game)
       error.value = ''
     } catch {
       error.value = 'Не удалось создать игру. Проверьте подключение и авторизацию.'

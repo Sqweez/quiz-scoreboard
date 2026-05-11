@@ -1,12 +1,13 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { CreateGameInput, Game, Round, Team } from '../types/quiz'
-import { getTeamTotal, normalizeScoreInput, sortTeamsByScore } from '../utils/scoring'
+import type { CreateGameInput, Game, Round, Team } from '#shared/quiz'
+import { getTeamTotal, normalizeScoreInput, sortTeamsByScore } from '#shared/quiz'
 
 type RoundUpdates = Partial<Pick<Round, 'title' | 'maxScore' | 'questionsCount'>>
 
 export const useQuizStore = defineStore('quiz', () => {
   const currentGame = ref<Game | null>(null)
+  const games = ref<Game[]>([])
   const isLoading = ref(false)
   const error = ref('')
 
@@ -19,14 +20,31 @@ export const useQuizStore = defineStore('quiz', () => {
   })
 
   async function createGame(input: CreateGameInput): Promise<Game> {
-    return requestGame(() => $fetch<Game>('/api/games', {
+    const game = await requestGame(() => $fetch<Game>('/api/games', {
       method: 'POST',
       body: input
     }), true, true)
+
+    upsertGame(game)
+
+    return game
   }
 
-  async function loadGame(): Promise<void> {
+  async function loadGame(gameId?: string): Promise<void> {
+    if (gameId) {
+      await requestOptionalGame(() => $fetch<Game>(`/api/games/${gameId}`))
+      return
+    }
+
     await requestOptionalGame(() => $fetch<Game | null>('/api/games/current'))
+  }
+
+  async function loadGames(): Promise<void> {
+    await requestGames(() => $fetch<Game[]>('/api/games'))
+  }
+
+  async function openGame(gameId: string): Promise<void> {
+    await requestOptionalGame(() => $fetch<Game>(`/api/games/${gameId}`))
   }
 
   async function updateGameTitle(title: string): Promise<void> {
@@ -153,6 +171,7 @@ export const useQuizStore = defineStore('quiz', () => {
       await $fetch(`/api/games/${gameId}`, {
         method: 'DELETE'
       })
+      games.value = games.value.filter((game) => game.id !== gameId)
     } catch (requestError) {
       error.value = getRequestMessage(requestError)
       await loadGame()
@@ -172,7 +191,11 @@ export const useQuizStore = defineStore('quiz', () => {
     error.value = ''
 
     try {
-      currentGame.value = await fetcher()
+      const game = await fetcher()
+      currentGame.value = game
+      if (game) {
+        upsertGame(game)
+      }
     } catch (requestError) {
       currentGame.value = null
       error.value = getRequestMessage(requestError)
@@ -191,6 +214,7 @@ export const useQuizStore = defineStore('quiz', () => {
       const game = await fetcher()
 
       currentGame.value = game
+      upsertGame(game)
 
       return game
     } catch (requestError) {
@@ -207,13 +231,46 @@ export const useQuizStore = defineStore('quiz', () => {
     }
   }
 
+  async function requestGames(fetcher: () => Promise<Game[]>): Promise<void> {
+    isLoading.value = true
+    error.value = ''
+
+    try {
+      games.value = await fetcher()
+      if (!currentGame.value) {
+        currentGame.value = games.value[0] ?? null
+      }
+    } catch (requestError) {
+      games.value = []
+      error.value = getRequestMessage(requestError)
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  function upsertGame(game: Game): void {
+    const index = games.value.findIndex((item) => item.id === game.id)
+
+    if (index >= 0) {
+      games.value[index] = game
+      return
+    }
+
+    games.value = [game, ...games.value].sort((left, right) =>
+      new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+    )
+  }
+
   return {
     currentGame,
+    games,
     isLoading,
     error,
     sortedTeams,
     createGame,
     loadGame,
+    loadGames,
+    openGame,
     updateGameTitle,
     addTeam,
     deleteTeam,

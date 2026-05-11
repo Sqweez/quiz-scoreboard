@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { getTeamTotal, normalizeScoreInput, sortTeamsByScore } from '../../app/utils/scoring'
+import { getTeamTotal, normalizeScoreInput, sortTeamsByScore } from '#shared/quiz'
 import { orderTeamsByPinnedIds } from '../../app/composables/usePinnedTeamOrder'
-import type { Round, Team } from '../../app/types/quiz'
+import type { Round, Team } from '#shared/quiz'
 
 const rounds: Round[] = [
   { id: 'round-1', title: 'Round 1' },

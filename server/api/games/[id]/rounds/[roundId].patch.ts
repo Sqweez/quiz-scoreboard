@@ -1,7 +1,7 @@
 import { getRouterParam, readBody } from 'h3'
 import { requireUserId } from '../../../../utils/auth'
 import { updateGameRound } from '../../../../utils/quiz'
-import type { Round } from '../../../../../app/types/quiz'
+import type { Round } from '#shared/quiz'
 
 export default defineEventHandler(async (event) => {
   const userId = await requireUserId(event)

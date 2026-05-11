@@ -1,7 +1,7 @@
 import { createError } from 'h3'
 import { prisma } from './prisma'
-import { normalizeScoreInput } from '../../app/utils/scoring'
-import type { CreateGameInput, Game, Round } from '../../app/types/quiz'
+import { normalizeScoreInput } from '#shared/quiz'
+import type { CreateGameInput, Game, Round } from '#shared/quiz'
 
 const gameInclude = {
   rounds: {
@@ -25,6 +25,20 @@ export async function findCurrentGame(userId: string): Promise<Game | null> {
   })
 
   return game ? mapGame(game) : null
+}
+
+export async function listGames(userId: string): Promise<Game[]> {
+  const games = await prisma.game.findMany({
+    where: { userId },
+    orderBy: { updatedAt: 'desc' },
+    include: gameInclude
+  })
+
+  return games.map(mapGame)
+}
+
+export async function findGameById(userId: string, gameId: string): Promise<Game> {
+  return mapGame(await requireOwnedGame(userId, gameId))
 }
 
 export async function createPersistedGame(userId: string, input: CreateGameInput): Promise<Game> {

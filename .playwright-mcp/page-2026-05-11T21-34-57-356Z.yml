@@ -1,0 +1,22 @@
+- main [ref=e4]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]: Войти
+      - generic [ref=e8]: Войди, чтобы открыть свои игры и продолжить работу.
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11] [cursor=pointer]: Вход
+        - generic [ref=e12] [cursor=pointer]: Регистрация
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]: Email
+          - textbox "Email" [ref=e16]:
+            - /placeholder: name@example.com
+        - generic [ref=e17]:
+          - generic [ref=e18]: Пароль
+          - textbox "Пароль" [ref=e19]:
+            - /placeholder: ••••••••
+        - generic [ref=e20] [cursor=pointer]: Войти
+      - paragraph [ref=e21]:
+        - text: Нет аккаунта?
+        - button "Создать" [ref=e22] [cursor=pointer]

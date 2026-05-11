@@ -3,7 +3,7 @@ import { Copy, Trophy } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/ui/table'
 import { useQuizStore } from '../stores/quiz'
-import type { Round, Team } from '../types/quiz'
+import type { Round, Team } from '#shared/quiz'
 import { usePinnedTeamOrder } from '../composables/usePinnedTeamOrder'
 import { useResultsClipboard } from '../composables/useResultsClipboard'
 

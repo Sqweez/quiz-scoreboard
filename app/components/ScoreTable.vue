@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
 import { Copy, Trophy } from 'lucide-vue-next'
 import Button from './ui/button/Button.vue'
 import Table from './ui/table/Table.vue'
@@ -10,25 +9,12 @@ import TableHeader from './ui/table/TableHeader.vue'
 import TableRow from './ui/table/TableRow.vue'
 import { useQuizStore } from '../stores/quiz'
 import type { Round, Team } from '../types/quiz'
-import { exportResultsToTsv, orderTeamsByPinnedIds } from '../utils/scoring'
+import { usePinnedTeamOrder } from '../composables/usePinnedTeamOrder'
+import { useResultsClipboard } from '../composables/useResultsClipboard'
 
 const quizStore = useQuizStore()
-const pinnedTeamIds = ref<string[] | null>(null)
-const copyStatus = ref<'idle' | 'success' | 'error'>('idle')
-let copyStatusTimer: ReturnType<typeof setTimeout> | null = null
-
-const visibleTeams = computed(() => orderTeamsByPinnedIds(quizStore.sortedTeams, pinnedTeamIds.value))
-const copyStatusText = computed(() => {
-  if (copyStatus.value === 'success') {
-    return 'Результаты скопированы'
-  }
-
-  if (copyStatus.value === 'error') {
-    return 'Не удалось скопировать результаты'
-  }
-
-  return ''
-})
+const { visibleTeams, freezeCurrentOrder, releaseCurrentOrder } = usePinnedTeamOrder(() => quizStore.sortedTeams)
+const { copyStatus, copyStatusText, copyResults } = useResultsClipboard()
 
 function updateScore(team: Team, round: Round, event: Event): void {
   const target = event.target as HTMLInputElement
@@ -49,17 +35,6 @@ function preventWheelStep(event: WheelEvent): void {
   event.currentTarget instanceof HTMLInputElement && event.currentTarget.blur()
 }
 
-function freezeCurrentOrder(): void {
-  if (!pinnedTeamIds.value) {
-    pinnedTeamIds.value = visibleTeams.value.map((team) => team.id)
-  }
-}
-
-async function releaseCurrentOrder(): Promise<void> {
-  await nextTick()
-  pinnedTeamIds.value = null
-}
-
 function handleScoreKeydown(event: KeyboardEvent): void {
   preventNativeNumberStep(event)
 
@@ -68,32 +43,12 @@ function handleScoreKeydown(event: KeyboardEvent): void {
   }
 }
 
-async function copyResults(): Promise<void> {
+function copyCurrentResults(): void {
   if (!quizStore.currentGame) {
     return
   }
 
-  try {
-    await navigator.clipboard.writeText(
-      exportResultsToTsv(quizStore.sortedTeams, quizStore.currentGame.rounds)
-    )
-    setCopyStatus('success')
-  } catch {
-    setCopyStatus('error')
-  }
-}
-
-function setCopyStatus(status: 'success' | 'error'): void {
-  copyStatus.value = status
-
-  if (copyStatusTimer) {
-    clearTimeout(copyStatusTimer)
-  }
-
-  copyStatusTimer = setTimeout(() => {
-    copyStatus.value = 'idle'
-    copyStatusTimer = null
-  }, 2500)
+  copyResults(quizStore.sortedTeams, quizStore.currentGame.rounds)
 }
 </script>
 
@@ -114,7 +69,7 @@ function setCopyStatus(status: 'success' | 'error'): void {
         >
           {{ copyStatusText }}
         </p>
-        <Button variant="outline" size="sm" @click="copyResults">
+        <Button variant="outline" size="sm" @click="copyCurrentResults">
           <Copy class="size-4" />
           Скопировать результаты
         </Button>

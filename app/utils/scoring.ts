@@ -77,9 +77,7 @@ export function exportResultsToTsv(teams: Team[], rounds: Round[]): string {
     String(index + 1),
     team.name,
     formatScore(getTeamTotal(team, rounds)),
-    rounds
-      .map((round) => `${formatScore(getRoundScore(team, round.id))}`)
-      .join("; "),
+    ...rounds.map((round) => formatScore(getRoundScore(team, round.id))),
   ]);
 
   return rows.map((row) => row.map(sanitizeTsvCell).join("\t")).join("\n");

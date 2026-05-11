@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { useGameSetupForm } from '../../app/composables/useGameSetupForm'
 
 describe('useGameSetupForm', () => {
-  it('creates a game from valid draft values and navigates to the game page', () => {
-    const createGame = vi.fn()
+  it('creates a game from valid draft values and navigates to the game page', async () => {
+    const createGame = vi.fn().mockResolvedValue(undefined)
     const navigateToGame = vi.fn()
     const form = useGameSetupForm({ createGame, navigateToGame })
 
@@ -15,7 +15,7 @@ describe('useGameSetupForm', () => {
     form.rounds.value[0].questionsCount = '5'
     form.rounds.value[1].title = 'Round 2'
 
-    form.createGame()
+    await form.createGame()
 
     expect(createGame).toHaveBeenCalledWith({
       title: '  Final quiz  ',

@@ -8,17 +8,21 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "test": "vitest run",
-    "postinstall": "nuxt prepare"
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "postinstall": "prisma generate && nuxt prepare"
   },
   "dependencies": {
     "@nuxtjs/supabase": "^2.0.6",
     "@pinia/nuxt": "^0.11.3",
+    "@prisma/client": "^7.8.0",
     "@tailwindcss/vite": "^4.3.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-vue-next": "^1.0.0",
     "nuxt": "^4.4.4",
     "pinia": "^3.0.4",
+    "prisma": "^7.8.0",
     "reka-ui": "^2.9.7",
     "shadcn-nuxt": "^2.6.2",
     "tailwind-merge": "^3.5.0",

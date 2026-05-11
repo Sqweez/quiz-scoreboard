@@ -13,13 +13,17 @@ import { useQuizStore } from '~/stores/quiz'
 const quizStore = useQuizStore()
 const titleError = ref('')
 
+definePageMeta({
+  middleware: 'auth'
+})
+
 const leader = computed(() => quizStore.sortedTeams[0] ?? null)
 const leaderTotal = computed(() => (leader.value ? quizStore.getTotalScore(leader.value) : 0))
 const teamsCount = computed(() => quizStore.currentGame?.teams.length ?? 0)
 const roundsCount = computed(() => quizStore.currentGame?.rounds.length ?? 0)
 
-onMounted(() => {
-  quizStore.loadGame()
+onMounted(async () => {
+  await quizStore.loadGame()
 })
 
 function updateTitle(value: string | number | null): void {
@@ -34,9 +38,9 @@ function updateTitle(value: string | number | null): void {
   titleError.value = ''
 }
 
-function resetGame(): void {
-  quizStore.clearGame()
-  navigateTo('/')
+async function resetGame(): Promise<void> {
+  await quizStore.clearGame()
+  await navigateTo('/')
 }
 </script>
 
@@ -76,6 +80,10 @@ function resetGame(): void {
           </Button>
         </div>
       </header>
+
+      <p v-if="quizStore.error" class="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        {{ quizStore.error }}
+      </p>
 
       <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div class="rounded-lg border bg-card p-4 shadow-sm">
@@ -127,8 +135,10 @@ function resetGame(): void {
 
     <Card v-else>
       <CardHeader>
-        <CardTitle>Нет активной игры</CardTitle>
-        <CardDescription>Создайте игру перед открытием таблицы результатов.</CardDescription>
+        <CardTitle>{{ quizStore.isLoading ? 'Загружаем игру' : 'Нет активной игры' }}</CardTitle>
+        <CardDescription>
+          {{ quizStore.isLoading ? 'Проверяем сохраненные данные.' : 'Создайте игру перед открытием таблицы результатов.' }}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <NuxtLink to="/">

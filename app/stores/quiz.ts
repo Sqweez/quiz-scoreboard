@@ -3,10 +3,12 @@ import { defineStore } from 'pinia'
 import type { CreateGameInput, Game, Round, Team } from '../types/quiz'
 import { getTeamTotal, normalizeScoreInput, sortTeamsByScore } from '../utils/scoring'
 
-const STORAGE_KEY = 'quiz-scoreboard-game'
+type RoundUpdates = Partial<Pick<Round, 'title' | 'maxScore' | 'questionsCount'>>
 
 export const useQuizStore = defineStore('quiz', () => {
   const currentGame = ref<Game | null>(null)
+  const isLoading = ref(false)
+  const error = ref('')
 
   const sortedTeams = computed<Team[]>(() => {
     if (!currentGame.value) {
@@ -16,175 +18,105 @@ export const useQuizStore = defineStore('quiz', () => {
     return sortTeamsByScore(currentGame.value.teams, currentGame.value.rounds)
   })
 
-  function createGame(input: CreateGameInput): Game {
-    const now = new Date().toISOString()
-    const rounds = input.rounds.map((round) => ({
-      id: createId(),
-      title: round.title.trim(),
-      maxScore: normalizeOptionalNumber(round.maxScore),
-      questionsCount: normalizeOptionalNumber(round.questionsCount)
-    }))
-
-    const teams = input.teamNames.map((name) => ({
-      id: createId(),
-      name: name.trim(),
-      scores: createScoresForRounds(rounds)
-    }))
-
-    currentGame.value = {
-      id: createId(),
-      title: input.title.trim(),
-      rounds,
-      teams,
-      createdAt: now,
-      updatedAt: now
-    }
-
-    saveGame()
-
-    return currentGame.value
+  async function createGame(input: CreateGameInput): Promise<Game> {
+    return requestGame(() => $fetch<Game>('/api/games', {
+      method: 'POST',
+      body: input
+    }), true, true)
   }
 
-  function loadGame(): void {
-    if (!import.meta.client) {
-      return
-    }
-
-    const rawGame = localStorage.getItem(STORAGE_KEY)
-
-    if (!rawGame) {
-      return
-    }
-
-    try {
-      currentGame.value = normalizeGame(JSON.parse(rawGame) as Game)
-    } catch {
-      localStorage.removeItem(STORAGE_KEY)
-      currentGame.value = null
-    }
+  async function loadGame(): Promise<void> {
+    await requestOptionalGame(() => $fetch<Game | null>('/api/games/current'))
   }
 
-  function saveGame(): void {
-    if (!import.meta.client) {
-      return
-    }
-
-    if (!currentGame.value) {
-      localStorage.removeItem(STORAGE_KEY)
-      return
-    }
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(currentGame.value))
-  }
-
-  function updateGameTitle(title: string): void {
+  async function updateGameTitle(title: string): Promise<void> {
     if (!currentGame.value || !title.trim()) {
       return
     }
 
-    currentGame.value.title = title.trim()
-    touchGame()
+    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}`, {
+      method: 'PATCH',
+      body: { title }
+    }))
   }
 
-  function addTeam(name = `Команда ${(currentGame.value?.teams.length ?? 0) + 1}`): void {
+  async function addTeam(name = `Команда ${(currentGame.value?.teams.length ?? 0) + 1}`): Promise<void> {
     if (!currentGame.value || !name.trim()) {
       return
     }
 
-    currentGame.value.teams.push({
-      id: createId(),
-      name: name.trim(),
-      scores: createScoresForRounds(currentGame.value.rounds)
-    })
-    touchGame()
+    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}/teams`, {
+      method: 'POST',
+      body: { name }
+    }))
   }
 
-  function deleteTeam(teamId: string): void {
+  async function deleteTeam(teamId: string): Promise<void> {
     if (!currentGame.value || currentGame.value.teams.length <= 1) {
       return
     }
 
-    currentGame.value.teams = currentGame.value.teams.filter((team) => team.id !== teamId)
-    touchGame()
+    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}/teams/${teamId}`, {
+      method: 'DELETE'
+    }))
   }
 
-  function renameTeam(teamId: string, name: string): void {
-    const team = findTeam(teamId)
-
-    if (!team || !name.trim()) {
+  async function renameTeam(teamId: string, name: string): Promise<void> {
+    if (!currentGame.value || !name.trim()) {
       return
     }
 
-    team.name = name.trim()
-    touchGame()
+    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}/teams/${teamId}`, {
+      method: 'PATCH',
+      body: { name }
+    }))
   }
 
-  function addRound(title = `Раунд ${(currentGame.value?.rounds.length ?? 0) + 1}`): void {
+  async function addRound(title = `Раунд ${(currentGame.value?.rounds.length ?? 0) + 1}`): Promise<void> {
     if (!currentGame.value || !title.trim()) {
       return
     }
 
-    const round: Round = {
-      id: createId(),
-      title: title.trim(),
-      maxScore: null,
-      questionsCount: null
-    }
-
-    currentGame.value.rounds.push(round)
-    currentGame.value.teams.forEach((team) => {
-      team.scores[round.id] = 0
-    })
-    touchGame()
+    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}/rounds`, {
+      method: 'POST',
+      body: { title }
+    }))
   }
 
-  function deleteRound(roundId: string): void {
+  async function deleteRound(roundId: string): Promise<void> {
     if (!currentGame.value || currentGame.value.rounds.length <= 1) {
       return
     }
 
-    currentGame.value.rounds = currentGame.value.rounds.filter((round) => round.id !== roundId)
-    currentGame.value.teams.forEach((team) => {
-      delete team.scores[roundId]
-    })
-    touchGame()
+    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}/rounds/${roundId}`, {
+      method: 'DELETE'
+    }))
   }
 
-  function renameRound(roundId: string, title: string): void {
-    updateRoundSettings(roundId, { title })
+  function renameRound(roundId: string, title: string): Promise<void> {
+    return updateRoundSettings(roundId, { title })
   }
 
-  function updateRoundSettings(
-    roundId: string,
-    updates: Partial<Pick<Round, 'title' | 'maxScore' | 'questionsCount'>>
-  ): void {
-    const round = findRound(roundId)
-
-    if (!round) {
+  async function updateRoundSettings(roundId: string, updates: RoundUpdates): Promise<void> {
+    if (!currentGame.value) {
       return
     }
 
-    if (updates.title !== undefined) {
-      if (!updates.title.trim()) {
-        return
-      }
-
-      round.title = updates.title.trim()
-    }
-
-    if (updates.maxScore !== undefined) {
-      round.maxScore = normalizeOptionalNumber(updates.maxScore)
-      clampScoresForRound(round)
-    }
-
-    if (updates.questionsCount !== undefined) {
-      round.questionsCount = normalizeOptionalNumber(updates.questionsCount)
-    }
-
-    touchGame()
+    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}/rounds/${roundId}`, {
+      method: 'PATCH',
+      body: updates
+    }))
   }
 
-  function updateTeamScore(teamId: string, roundId: string, score: number | string | null | undefined): void {
+  async function updateTeamScore(
+    teamId: string,
+    roundId: string,
+    score: number | string | null | undefined
+  ): Promise<void> {
+    if (!currentGame.value) {
+      return
+    }
+
     const team = findTeam(teamId)
     const round = findRound(roundId)
 
@@ -193,16 +125,38 @@ export const useQuizStore = defineStore('quiz', () => {
     }
 
     team.scores[roundId] = normalizeScoreInput(score, round)
-    touchGame()
+
+    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}/scores`, {
+      method: 'PATCH',
+      body: {
+        teamId,
+        roundId,
+        score
+      }
+    }), false)
   }
 
   function getTotalScore(team: Team): number {
     return currentGame.value ? getTeamTotal(team, currentGame.value.rounds) : 0
   }
 
-  function clearGame(): void {
+  async function clearGame(): Promise<void> {
+    if (!currentGame.value) {
+      return
+    }
+
+    const gameId = currentGame.value.id
     currentGame.value = null
-    saveGame()
+    error.value = ''
+
+    try {
+      await $fetch(`/api/games/${gameId}`, {
+        method: 'DELETE'
+      })
+    } catch (requestError) {
+      error.value = getRequestMessage(requestError)
+      await loadGame()
+    }
   }
 
   function findTeam(teamId: string): Team | undefined {
@@ -213,27 +167,53 @@ export const useQuizStore = defineStore('quiz', () => {
     return currentGame.value?.rounds.find((round) => round.id === roundId)
   }
 
-  function touchGame(): void {
-    if (!currentGame.value) {
-      return
-    }
+  async function requestOptionalGame(fetcher: () => Promise<Game | null>): Promise<void> {
+    isLoading.value = true
+    error.value = ''
 
-    currentGame.value.updatedAt = new Date().toISOString()
-    saveGame()
+    try {
+      currentGame.value = await fetcher()
+    } catch (requestError) {
+      currentGame.value = null
+      error.value = getRequestMessage(requestError)
+    } finally {
+      isLoading.value = false
+    }
   }
 
-  function clampScoresForRound(round: Round): void {
-    currentGame.value?.teams.forEach((team) => {
-      team.scores[round.id] = normalizeScoreInput(team.scores[round.id] ?? 0, round)
-    })
+  async function requestGame(fetcher: () => Promise<Game>, showLoading = true, throwOnError = false): Promise<Game> {
+    if (showLoading) {
+      isLoading.value = true
+    }
+    error.value = ''
+
+    try {
+      const game = await fetcher()
+
+      currentGame.value = game
+
+      return game
+    } catch (requestError) {
+      error.value = getRequestMessage(requestError)
+      if (!throwOnError) {
+        return currentGame.value as Game
+      }
+
+      throw requestError
+    } finally {
+      if (showLoading) {
+        isLoading.value = false
+      }
+    }
   }
 
   return {
     currentGame,
+    isLoading,
+    error,
     sortedTeams,
     createGame,
     loadGame,
-    saveGame,
     updateGameTitle,
     addTeam,
     deleteTeam,
@@ -248,47 +228,10 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 })
 
-function createScoresForRounds(rounds: Round[]): Record<string, number> {
-  return Object.fromEntries(rounds.map((round) => [round.id, 0]))
-}
-
-function normalizeGame(game: Game): Game {
-  const rounds = Array.isArray(game.rounds) ? game.rounds : []
-  const teams = Array.isArray(game.teams) ? game.teams : []
-  const normalizedRounds = rounds.map((round) => ({
-    ...round,
-    maxScore: normalizeOptionalNumber(round.maxScore),
-    questionsCount: normalizeOptionalNumber(round.questionsCount)
-  }))
-
-  return {
-    ...game,
-    rounds: normalizedRounds,
-    teams: teams.map((team) => ({
-      ...team,
-      scores: normalizeScoresForRounds(team.scores ?? {}, normalizedRounds)
-    }))
-  }
-}
-
-function normalizeScoresForRounds(scores: Record<string, number>, rounds: Round[]): Record<string, number> {
-  return Object.fromEntries(
-    rounds.map((round) => [round.id, normalizeScoreInput(scores[round.id] ?? 0, round)])
-  )
-}
-
-function normalizeOptionalNumber(value: number | string | null | undefined): number | null {
-  if (value === '' || value === null || value === undefined || Number.isNaN(Number(value))) {
-    return null
+function getRequestMessage(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'statusMessage' in error) {
+    return String(error.statusMessage)
   }
 
-  return Math.max(0, Number(value))
-}
-
-function createId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return 'Не удалось сохранить изменения.'
 }

@@ -25,8 +25,8 @@ type CreateGamePayload = {
 }
 
 type UseGameSetupFormOptions = {
-  createGame: (payload: CreateGamePayload) => void
-  navigateToGame: () => void
+  createGame: (payload: CreateGamePayload) => Promise<unknown>
+  navigateToGame: () => Promise<unknown> | unknown
 }
 
 export function useGameSetupForm(options: UseGameSetupFormOptions) {
@@ -66,7 +66,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     }
   }
 
-  function createGame(): void {
+  async function createGame(): Promise<void> {
     const teamValues = teamNames.value.map((team) => team.name.trim()).filter(Boolean)
     const roundValues = rounds.value
       .map((round) => ({
@@ -91,13 +91,17 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
       return
     }
 
-    options.createGame({
-      title: title.value,
-      teamNames: teamValues,
-      rounds: roundValues
-    })
-    options.navigateToGame()
-    error.value = ''
+    try {
+      await options.createGame({
+        title: title.value,
+        teamNames: teamValues,
+        rounds: roundValues
+      })
+      await options.navigateToGame()
+      error.value = ''
+    } catch {
+      error.value = 'Не удалось создать игру. Проверьте подключение и авторизацию.'
+    }
   }
 
   return {

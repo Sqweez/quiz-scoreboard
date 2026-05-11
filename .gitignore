@@ -5,6 +5,7 @@
 .nitro
 .cache
 dist
+server/generated/prisma
 
 # Node dependencies
 node_modules

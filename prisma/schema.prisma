@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../server/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Game {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  rounds    Round[]
+  teams     Team[]
+
+  @@index([userId])
+  @@map("games")
+}
+
+model Round {
+  id             String  @id @default(uuid()) @db.Uuid
+  gameId         String  @map("game_id") @db.Uuid
+  title          String
+  maxScore       Float?  @map("max_score")
+  questionsCount Int?    @map("questions_count")
+  position       Int
+  game           Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  scores         Score[]
+
+  @@index([gameId])
+  @@map("rounds")
+}
+
+model Team {
+  id       String  @id @default(uuid()) @db.Uuid
+  gameId   String  @map("game_id") @db.Uuid
+  name     String
+  position Int
+  game     Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  scores   Score[]
+
+  @@index([gameId])
+  @@map("teams")
+}
+
+model Score {
+  id      String @id @default(uuid()) @db.Uuid
+  teamId  String @map("team_id") @db.Uuid
+  roundId String @map("round_id") @db.Uuid
+  value   Float  @default(0)
+  team    Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  round   Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, roundId])
+  @@index([roundId])
+  @@map("scores")
+}

@@ -43,7 +43,7 @@ const quizStore = useQuizStore()
         <section class="space-y-3">
           <div class="flex items-center justify-between gap-3">
             <h3 class="text-base font-semibold">Команды</h3>
-            <Button variant="outline" size="sm" @click="addTeam">
+            <Button type="button" variant="outline" size="sm" @click="addTeam">
               <Plus class="size-4" />
               Добавить команду
             </Button>
@@ -55,6 +55,7 @@ const quizStore = useQuizStore()
               </span>
               <Input v-model="team.name" aria-label="Название команды" />
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
                 :disabled="teamNames.length <= 1"
@@ -70,7 +71,7 @@ const quizStore = useQuizStore()
         <section class="space-y-3">
           <div class="flex items-center justify-between gap-3">
             <h3 class="text-base font-semibold">Раунды</h3>
-            <Button variant="outline" size="sm" @click="addRound">
+            <Button type="button" variant="outline" size="sm" @click="addRound">
               <Plus class="size-4" />
               Добавить раунд
             </Button>
@@ -85,6 +86,7 @@ const quizStore = useQuizStore()
               <Input v-model="round.maxScore" type="number" min="0" placeholder="Макс." />
               <Input v-model="round.questionsCount" type="number" min="0" placeholder="Вопросы" />
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
                 :disabled="rounds.length <= 1"

@@ -172,7 +172,7 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   async function clearGame(): Promise<void> {
-    if (!currentGame.value || !isEditable.value) {
+    if (!currentGame.value) {
       return
     }
 
@@ -192,7 +192,7 @@ export const useQuizStore = defineStore('quiz', () => {
       games.value = games.value.filter((game) => game.id !== gameId)
     } catch (requestError) {
       error.value = getRequestMessage(requestError)
-      await loadGame()
+      await loadGame(gameId)
     }
   }
 

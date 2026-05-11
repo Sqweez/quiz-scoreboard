@@ -13,6 +13,7 @@ import { useQuizStore } from '~/stores/quiz'
 
 const quizStore = useQuizStore()
 const titleError = ref('')
+const isDeleting = ref(false)
 const route = useRoute()
 
 definePageMeta({
@@ -47,6 +48,32 @@ function updateTitle(value: string | number | null | undefined): void {
 
 async function finishCurrentGame(): Promise<void> {
   await quizStore.finishGame()
+}
+
+async function deleteCurrentGame(): Promise<void> {
+  const gameId = quizStore.currentGame?.id
+
+  if (!gameId || isDeleting.value) {
+    return
+  }
+
+  const confirmed = window.confirm('Удалить эту игру? Это действие нельзя отменить.')
+
+  if (!confirmed) {
+    return
+  }
+
+  isDeleting.value = true
+
+  try {
+    await quizStore.clearGame()
+
+    if (!quizStore.error) {
+      await navigateTo('/')
+    }
+  } finally {
+    isDeleting.value = false
+  }
 }
 </script>
 
@@ -91,6 +118,10 @@ async function finishCurrentGame(): Promise<void> {
             <Button v-if="!isFinished" variant="outline" class="shrink-0" @click="finishCurrentGame">
               <CheckCircle2 class="size-4" />
               Завершить игру
+            </Button>
+            <Button variant="destructive" class="shrink-0" :disabled="isDeleting" @click="deleteCurrentGame">
+              <Spinner v-if="isDeleting" />
+              Удалить игру
             </Button>
           </div>
         </div>

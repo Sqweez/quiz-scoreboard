@@ -125,7 +125,7 @@ export async function updateGameTitle(userId: string, gameId: string, title: str
 }
 
 export async function deleteGame(userId: string, gameId: string): Promise<{ ok: true }> {
-  const game = await requireEditableGame(userId, gameId)
+  const game = await requireOwnedGame(userId, gameId)
 
   await prisma.game.delete({
     where: { id: game.id }

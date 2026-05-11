@@ -4,15 +4,27 @@ import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
+import { Spinner } from '~/components/ui/spinner'
 import { useGameSetupForm } from '~/composables/useGameSetupForm'
 import { useQuizStore } from '~/stores/quiz'
 
 const router = useRouter()
 const quizStore = useQuizStore()
-const { title, teamNames, rounds, error, addTeam, removeTeam, addRound, removeRound, createGame } = useGameSetupForm({
-  createGame: quizStore.createGame,
-  navigateToGame: (game) => router.push({ path: '/game', query: { gameId: game.id } })
-})
+  const {
+    title,
+    teamNames,
+    rounds,
+    error,
+    isSubmitting,
+    addTeam,
+    removeTeam,
+    addRound,
+    removeRound,
+    createGame
+  } = useGameSetupForm({
+    createGame: quizStore.createGame,
+    navigateToGame: (game) => router.push({ path: `/games/${game.id}` })
+  })
 </script>
 
 <template>
@@ -90,7 +102,8 @@ const { title, teamNames, rounds, error, addTeam, removeTeam, addRound, removeRo
         </p>
 
         <div class="flex justify-end border-t pt-4">
-          <Button type="submit" size="lg">
+          <Button type="submit" size="lg" :disabled="isSubmitting">
+            <Spinner v-if="isSubmitting" />
             Создать игру
           </Button>
         </div>

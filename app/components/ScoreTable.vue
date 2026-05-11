@@ -7,6 +7,10 @@ import type { Round, Team } from '#shared/quiz'
 import { usePinnedTeamOrder } from '../composables/usePinnedTeamOrder'
 import { useResultsClipboard } from '../composables/useResultsClipboard'
 
+const props = defineProps<{
+  readOnly?: boolean
+}>()
+
 const quizStore = useQuizStore()
 const { visibleTeams, freezeCurrentOrder, releaseCurrentOrder } = usePinnedTeamOrder(() => quizStore.sortedTeams)
 const { copyStatus, copyStatusText, copyResults } = useResultsClipboard()
@@ -140,6 +144,7 @@ function copyCurrentResults(): void {
               min="0"
               :max="round.maxScore ?? undefined"
               :value="scoreValue(team, round.id)"
+              :disabled="props.readOnly"
               @focus="freezeCurrentOrder"
               @input="updateScore(team, round, $event)"
               @blur="releaseCurrentOrder"

@@ -48,5 +48,7 @@ export function normalizeScoreInput(
 }
 
 export function getRoundScore(team: Team, roundId: string): number {
-  return Number.isFinite(team.scores[roundId]) ? team.scores[roundId] : 0
+  const score = team.scores[roundId] ?? 0
+
+  return Number.isFinite(score) ? score : 0
 }

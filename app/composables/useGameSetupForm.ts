@@ -41,6 +41,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     { id: createDraftId(), title: 'Раунд 2', maxScore: '', questionsCount: '' }
   ])
   const error = ref('')
+  const isSubmitting = ref(false)
 
   function addTeam(): void {
     teamNames.value.push({ id: createDraftId(), name: `Команда ${teamNames.value.length + 1}` })
@@ -68,6 +69,10 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
   }
 
   async function createGame(): Promise<void> {
+    if (isSubmitting.value) {
+      return
+    }
+
     const teamValues = teamNames.value.map((team) => team.name.trim()).filter(Boolean)
     const roundValues = rounds.value
       .map((round) => ({
@@ -93,6 +98,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     }
 
     try {
+      isSubmitting.value = true
       const game = await options.createGame({
         title: title.value,
         teamNames: teamValues,
@@ -102,6 +108,8 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
       error.value = ''
     } catch {
       error.value = 'Не удалось создать игру. Проверьте подключение и авторизацию.'
+    } finally {
+      isSubmitting.value = false
     }
   }
 
@@ -110,6 +118,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     teamNames,
     rounds,
     error,
+    isSubmitting,
     addTeam,
     removeTeam,
     addRound,

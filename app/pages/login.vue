@@ -4,6 +4,7 @@ import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
+import { Spinner } from '~/components/ui/spinner'
 
 type AuthMode = 'signin' | 'signup'
 
@@ -150,6 +151,7 @@ async function submitAuth(): Promise<void> {
             class="h-11 w-full"
             :disabled="isLoading"
           >
+            <Spinner v-if="isLoading" />
             {{ isLoading ? 'Подождите...' : primaryLabel }}
           </Button>
         </form>

@@ -10,6 +10,7 @@ export const useQuizStore = defineStore('quiz', () => {
   const games = ref<Game[]>([])
   const isLoading = ref(false)
   const error = ref('')
+  const isEditable = computed(() => currentGame.value?.status !== 'finished')
 
   const sortedTeams = computed<Team[]>(() => {
     if (!currentGame.value) {
@@ -47,8 +48,20 @@ export const useQuizStore = defineStore('quiz', () => {
     await requestOptionalGame(() => $fetch<Game>(`/api/games/${gameId}`))
   }
 
+  async function finishGame(): Promise<void> {
+    const gameId = currentGame.value?.id
+
+    if (!gameId) {
+      return
+    }
+
+    await requestGame(() => $fetch<Game>(`/api/games/${gameId}/finish`, {
+      method: 'POST'
+    }))
+  }
+
   async function updateGameTitle(title: string): Promise<void> {
-    if (!currentGame.value || !title.trim()) {
+    if (!currentGame.value || !title.trim() || !isEditable.value) {
       return
     }
 
@@ -59,7 +72,7 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   async function addTeam(name = `Команда ${(currentGame.value?.teams.length ?? 0) + 1}`): Promise<void> {
-    if (!currentGame.value || !name.trim()) {
+    if (!currentGame.value || !name.trim() || !isEditable.value) {
       return
     }
 
@@ -70,7 +83,7 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   async function deleteTeam(teamId: string): Promise<void> {
-    if (!currentGame.value || currentGame.value.teams.length <= 1) {
+    if (!currentGame.value || currentGame.value.teams.length <= 1 || !isEditable.value) {
       return
     }
 
@@ -80,7 +93,7 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   async function renameTeam(teamId: string, name: string): Promise<void> {
-    if (!currentGame.value || !name.trim()) {
+    if (!currentGame.value || !name.trim() || !isEditable.value) {
       return
     }
 
@@ -91,7 +104,7 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   async function addRound(title = `Раунд ${(currentGame.value?.rounds.length ?? 0) + 1}`): Promise<void> {
-    if (!currentGame.value || !title.trim()) {
+    if (!currentGame.value || !title.trim() || !isEditable.value) {
       return
     }
 
@@ -102,7 +115,7 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   async function deleteRound(roundId: string): Promise<void> {
-    if (!currentGame.value || currentGame.value.rounds.length <= 1) {
+    if (!currentGame.value || currentGame.value.rounds.length <= 1 || !isEditable.value) {
       return
     }
 
@@ -116,7 +129,7 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   async function updateRoundSettings(roundId: string, updates: RoundUpdates): Promise<void> {
-    if (!currentGame.value) {
+    if (!currentGame.value || !isEditable.value) {
       return
     }
 
@@ -131,7 +144,7 @@ export const useQuizStore = defineStore('quiz', () => {
     roundId: string,
     score: number | string | null | undefined
   ): Promise<void> {
-    if (!currentGame.value) {
+    if (!currentGame.value || !isEditable.value) {
       return
     }
 
@@ -159,7 +172,7 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   async function clearGame(): Promise<void> {
-    if (!currentGame.value) {
+    if (!currentGame.value || !isEditable.value) {
       return
     }
 
@@ -168,9 +181,14 @@ export const useQuizStore = defineStore('quiz', () => {
     error.value = ''
 
     try {
-      await $fetch(`/api/games/${gameId}`, {
+      const response = await fetch(`/api/games/${gameId}`, {
         method: 'DELETE'
       })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete game.')
+      }
+
       games.value = games.value.filter((game) => game.id !== gameId)
     } catch (requestError) {
       error.value = getRequestMessage(requestError)
@@ -237,9 +255,6 @@ export const useQuizStore = defineStore('quiz', () => {
 
     try {
       games.value = await fetcher()
-      if (!currentGame.value) {
-        currentGame.value = games.value[0] ?? null
-      }
     } catch (requestError) {
       games.value = []
       error.value = getRequestMessage(requestError)
@@ -271,6 +286,7 @@ export const useQuizStore = defineStore('quiz', () => {
     loadGame,
     loadGames,
     openGame,
+    finishGame,
     updateGameTitle,
     addTeam,
     deleteTeam,
@@ -281,7 +297,8 @@ export const useQuizStore = defineStore('quiz', () => {
     updateRoundSettings,
     updateTeamScore,
     getTotalScore,
-    clearGame
+    clearGame,
+    isEditable
   }
 })
 

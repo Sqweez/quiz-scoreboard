@@ -7,6 +7,10 @@ import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { useQuizStore } from '../stores/quiz'
 
+const props = defineProps<{
+  readOnly?: boolean
+}>()
+
 const quizStore = useQuizStore()
 const newRoundTitle = ref('')
 const error = ref('')
@@ -50,7 +54,7 @@ function updateOptionalNumber(roundId: string, field: 'maxScore' | 'questionsCou
       </div>
     </CardHeader>
     <CardContent class="space-y-4">
-      <div class="flex gap-2 rounded-md border bg-background p-2">
+      <div v-if="!props.readOnly" class="flex gap-2 rounded-md border bg-background p-2">
         <Input v-model="newRoundTitle" placeholder="Новый раунд" @keyup.enter="addRound" />
         <Button @click="addRound">
           <Plus class="size-4" />
@@ -68,6 +72,7 @@ function updateOptionalNumber(roundId: string, field: 'maxScore' | 'questionsCou
             <Label>Название</Label>
             <Input
               :model-value="round.title"
+              :disabled="props.readOnly"
               @update:model-value="updateTitle(round.id, String($event))"
             />
           </div>
@@ -77,6 +82,7 @@ function updateOptionalNumber(roundId: string, field: 'maxScore' | 'questionsCou
               :model-value="round.maxScore ?? ''"
               type="number"
               min="0"
+              :disabled="props.readOnly"
               @update:model-value="updateOptionalNumber(round.id, 'maxScore', String($event))"
             />
           </div>
@@ -86,11 +92,13 @@ function updateOptionalNumber(roundId: string, field: 'maxScore' | 'questionsCou
               :model-value="round.questionsCount ?? ''"
               type="number"
               min="0"
+              :disabled="props.readOnly"
               @update:model-value="updateOptionalNumber(round.id, 'questionsCount', String($event))"
             />
           </div>
           <div class="flex items-end">
             <Button
+              v-if="!props.readOnly"
               variant="ghost"
               size="icon"
               :disabled="(quizStore.currentGame?.rounds.length ?? 0) <= 1"

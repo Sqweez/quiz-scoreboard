@@ -6,6 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
 import { useQuizStore } from '../stores/quiz'
 
+const props = defineProps<{
+  readOnly?: boolean
+}>()
+
 const quizStore = useQuizStore()
 const newTeamName = ref('')
 const error = ref('')
@@ -43,7 +47,7 @@ function renameTeam(teamId: string, value: string): void {
       </div>
     </CardHeader>
     <CardContent class="space-y-4">
-      <div class="flex gap-2 rounded-md border bg-background p-2">
+      <div v-if="!props.readOnly" class="flex gap-2 rounded-md border bg-background p-2">
         <Input v-model="newTeamName" placeholder="Новая команда" @keyup.enter="addTeam" />
         <Button @click="addTeam">
           <Plus class="size-4" />
@@ -63,9 +67,11 @@ function renameTeam(teamId: string, value: string): void {
           <Input
             :model-value="team.name"
             aria-label="Название команды"
+            :disabled="props.readOnly"
             @update:model-value="renameTeam(team.id, String($event))"
           />
           <Button
+            v-if="!props.readOnly"
             variant="ghost"
             size="icon"
             :disabled="(quizStore.currentGame?.teams.length ?? 0) <= 1"

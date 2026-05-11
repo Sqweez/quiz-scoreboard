@@ -1,3 +1,5 @@
+export type GameStatus = 'draft' | 'finished'
+
 export type Round = {
   id: string
   title: string
@@ -11,13 +13,19 @@ export type Team = {
   scores: Record<string, number>
 }
 
-export type Game = {
+export type GameCore = {
   id: string
   title: string
+  status: GameStatus
   rounds: Round[]
   teams: Team[]
   createdAt: string
   updatedAt: string
+}
+
+export type Game = GameCore & {
+  statusLabel: string
+  statusActionLabel: string
 }
 
 export type CreateGameInput = {

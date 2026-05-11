@@ -1,6 +1,6 @@
 import { createError } from 'h3'
 import { prisma } from './prisma'
-import { normalizeScoreInput } from '#shared/quiz'
+import { getGameStatusMeta, normalizeScoreInput } from '#shared/quiz'
 import type { CreateGameInput, Game, Round } from '#shared/quiz'
 
 const gameInclude = {
@@ -63,7 +63,8 @@ export async function createPersistedGame(userId: string, input: CreateGameInput
     const createdGame = await tx.game.create({
       data: {
         userId,
-        title
+        title,
+        status: 'draft'
       }
     })
     const createdRounds = await Promise.all(
@@ -105,7 +106,7 @@ export async function createPersistedGame(userId: string, input: CreateGameInput
 }
 
 export async function updateGameTitle(userId: string, gameId: string, title: string): Promise<Game> {
-  const game = await requireOwnedGame(userId, gameId)
+  const game = await requireEditableGame(userId, gameId)
   const normalizedTitle = title.trim()
 
   if (!normalizedTitle) {
@@ -124,7 +125,7 @@ export async function updateGameTitle(userId: string, gameId: string, title: str
 }
 
 export async function deleteGame(userId: string, gameId: string): Promise<{ ok: true }> {
-  const game = await requireOwnedGame(userId, gameId)
+  const game = await requireEditableGame(userId, gameId)
 
   await prisma.game.delete({
     where: { id: game.id }
@@ -134,7 +135,7 @@ export async function deleteGame(userId: string, gameId: string): Promise<{ ok: 
 }
 
 export async function addGameTeam(userId: string, gameId: string, name: string): Promise<Game> {
-  const game = await requireOwnedGame(userId, gameId)
+  const game = await requireEditableGame(userId, gameId)
   const normalizedName = name.trim()
 
   if (!normalizedName) {
@@ -168,7 +169,7 @@ export async function addGameTeam(userId: string, gameId: string, name: string):
 }
 
 export async function renameGameTeam(userId: string, gameId: string, teamId: string, name: string): Promise<Game> {
-  const game = await requireOwnedGame(userId, gameId)
+  const game = await requireEditableGame(userId, gameId)
   const normalizedName = name.trim()
 
   if (!normalizedName || !game.teams.some((team) => team.id === teamId)) {
@@ -190,7 +191,7 @@ export async function renameGameTeam(userId: string, gameId: string, teamId: str
 }
 
 export async function deleteGameTeam(userId: string, gameId: string, teamId: string): Promise<Game> {
-  const game = await requireOwnedGame(userId, gameId)
+  const game = await requireEditableGame(userId, gameId)
 
   if (game.teams.length <= 1 || !game.teams.some((team) => team.id === teamId)) {
     throw createError({
@@ -210,7 +211,7 @@ export async function deleteGameTeam(userId: string, gameId: string, teamId: str
 }
 
 export async function addGameRound(userId: string, gameId: string, title: string): Promise<Game> {
-  const game = await requireOwnedGame(userId, gameId)
+  const game = await requireEditableGame(userId, gameId)
   const normalizedTitle = title.trim()
 
   if (!normalizedTitle) {
@@ -251,7 +252,7 @@ export async function updateGameRound(
   roundId: string,
   updates: Partial<Pick<Round, 'title' | 'maxScore' | 'questionsCount'>>
 ): Promise<Game> {
-  const game = await requireOwnedGame(userId, gameId)
+  const game = await requireEditableGame(userId, gameId)
   const round = game.rounds.find((item) => item.id === roundId)
 
   if (!round) {
@@ -295,7 +296,7 @@ export async function updateGameRound(
         }
       },
       data: {
-        value: normalizeScoreInput(team.scores[roundId] ?? 0, nextRound)
+        value: normalizeScoreInput(team.scores.find((score) => score.roundId === roundId)?.value ?? 0, nextRound)
       }
     })))
     await touchGame(tx, game.id)
@@ -305,7 +306,7 @@ export async function updateGameRound(
 }
 
 export async function deleteGameRound(userId: string, gameId: string, roundId: string): Promise<Game> {
-  const game = await requireOwnedGame(userId, gameId)
+  const game = await requireEditableGame(userId, gameId)
 
   if (game.rounds.length <= 1 || !game.rounds.some((round) => round.id === roundId)) {
     throw createError({
@@ -331,7 +332,7 @@ export async function updateGameScore(
   roundId: string,
   score: number | string | null | undefined
 ): Promise<Game> {
-  const game = await requireOwnedGame(userId, gameId)
+  const game = await requireEditableGame(userId, gameId)
   const team = game.teams.find((item) => item.id === teamId)
   const round = game.rounds.find((item) => item.id === roundId)
 
@@ -378,6 +379,19 @@ async function requireOwnedGame(userId: string, gameId: string): Promise<Persist
   return game
 }
 
+async function requireEditableGame(userId: string, gameId: string): Promise<PersistedGame> {
+  const game = await requireOwnedGame(userId, gameId)
+
+  if (game.status === 'finished') {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Finished games are read-only.'
+    })
+  }
+
+  return game
+}
+
 function findOwnedGame(userId: string, gameId: string) {
   return prisma.game.findFirst({
     where: {
@@ -403,6 +417,8 @@ function mapGame(game: PersistedGame): Game {
   return {
     id: game.id,
     title: game.title,
+    status: game.status === 'finished' ? 'finished' : 'draft',
+    ...getGameStatusMeta(game.status === 'finished' ? 'finished' : 'draft'),
     rounds,
     teams: game.teams.map((team) => ({
       id: team.id,
@@ -416,6 +432,19 @@ function mapGame(game: PersistedGame): Game {
     createdAt: game.createdAt.toISOString(),
     updatedAt: game.updatedAt.toISOString()
   }
+}
+
+export async function finishGame(userId: string, gameId: string): Promise<Game> {
+  const game = await requireEditableGame(userId, gameId)
+
+  await prisma.game.update({
+    where: { id: game.id },
+    data: {
+      status: 'finished'
+    }
+  })
+
+  return refreshGame(userId, gameId)
 }
 
 function normalizeOptionalNumber(value: number | string | null | undefined): number | null {

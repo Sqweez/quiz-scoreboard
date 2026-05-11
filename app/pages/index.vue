@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { ArrowRight, LogIn, LogOut, Plus } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
@@ -9,10 +9,15 @@ import { useQuizStore } from '~/stores/quiz'
 const quizStore = useQuizStore()
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+const hasInitialAuthCheck = ref(false)
 
 watch(
   user,
   async (value) => {
+    if (!hasInitialAuthCheck.value) {
+      return
+    }
+
     if (value) {
       await quizStore.loadGames()
       return
@@ -20,8 +25,16 @@ watch(
 
     quizStore.games = []
   },
-  { immediate: true }
+  { immediate: false }
 )
+
+onMounted(async () => {
+  if (user.value) {
+    await quizStore.loadGames()
+  }
+
+  hasInitialAuthCheck.value = true
+})
 
 async function signOut(): Promise<void> {
   await supabase.auth.signOut()

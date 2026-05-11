@@ -43,7 +43,7 @@ const quizStore = useQuizStore()
         <section class="space-y-3">
           <div class="flex items-center justify-between gap-3">
             <h3 class="text-base font-semibold">Команды</h3>
-            <Button type="button" variant="outline" size="sm" @click="addTeam">
+            <Button type="button" variant="outline" size="sm" @click.prevent="addTeam">
               <Plus class="size-4" />
               Добавить команду
             </Button>
@@ -53,14 +53,14 @@ const quizStore = useQuizStore()
               <span class="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary text-sm font-semibold text-muted-foreground">
                 {{ index + 1 }}
               </span>
-              <Input v-model="team.name" aria-label="Название команды" />
+              <Input v-model="team.name" aria-label="Название команды" @keydown.enter.prevent />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 :disabled="teamNames.length <= 1"
                 aria-label="Удалить команду"
-                @click="removeTeam(team.id)"
+                @click.prevent="removeTeam(team.id)"
               >
                 <Trash2 class="size-4" />
               </Button>
@@ -71,7 +71,7 @@ const quizStore = useQuizStore()
         <section class="space-y-3">
           <div class="flex items-center justify-between gap-3">
             <h3 class="text-base font-semibold">Раунды</h3>
-            <Button type="button" variant="outline" size="sm" @click="addRound">
+            <Button type="button" variant="outline" size="sm" @click.prevent="addRound">
               <Plus class="size-4" />
               Добавить раунд
             </Button>
@@ -82,7 +82,7 @@ const quizStore = useQuizStore()
               :key="round.id"
               class="grid gap-2 rounded-md border bg-background p-3 md:grid-cols-[minmax(0,1fr)_120px_140px_auto]"
             >
-              <Input v-model="round.title" aria-label="Название раунда" />
+              <Input v-model="round.title" aria-label="Название раунда" @keydown.enter.prevent />
               <Input v-model="round.maxScore" type="number" min="0" placeholder="Макс." />
               <Input v-model="round.questionsCount" type="number" min="0" placeholder="Вопросы" />
               <Button
@@ -91,7 +91,7 @@ const quizStore = useQuizStore()
                 size="icon"
                 :disabled="rounds.length <= 1"
                 aria-label="Удалить раунд"
-                @click="removeRound(round.id)"
+                @click.prevent="removeRound(round.id)"
               >
                 <Trash2 class="size-4" />
               </Button>

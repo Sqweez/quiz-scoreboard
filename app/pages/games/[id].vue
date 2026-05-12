@@ -34,6 +34,10 @@ watch(
   { immediate: true }
 )
 
+onBeforeRouteLeave(async () => {
+  await quizStore.flushPendingScoreChanges(true)
+})
+
 function updateTitle(value: string | number | null | undefined): void {
   const title = String(value ?? '')
 
@@ -115,11 +119,22 @@ async function deleteCurrentGame(): Promise<void> {
           </div>
 
           <div class="flex flex-wrap gap-2">
-            <Button v-if="!isFinished" variant="outline" class="shrink-0" @click="finishCurrentGame">
+            <Button
+              v-if="!isFinished"
+              variant="outline"
+              class="shrink-0"
+              :disabled="quizStore.isSavingScores"
+              @click="finishCurrentGame"
+            >
               <CheckCircle2 class="size-4" />
               Завершить игру
             </Button>
-            <Button variant="destructive" class="shrink-0" :disabled="isDeleting" @click="deleteCurrentGame">
+            <Button
+              variant="destructive"
+              class="shrink-0"
+              :disabled="isDeleting || quizStore.isSavingScores"
+              @click="deleteCurrentGame"
+            >
               <Spinner v-if="isDeleting" />
               Удалить игру
             </Button>

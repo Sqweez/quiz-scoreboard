@@ -1,9 +1,18 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { CreateGameInput, Game, Round, Team } from '#shared/quiz'
+import type { CreateGameInput, Game, Round, ScoreUpdateInput, Team } from '#shared/quiz'
 import { getTeamTotal, normalizeScoreInput, sortTeamsByScore } from '#shared/quiz'
 
 type RoundUpdates = Partial<Pick<Round, 'title' | 'maxScore' | 'questionsCount'>>
+type PendingScoreChange = {
+  teamId: string
+  roundId: string
+  score: number
+  revision: number
+}
+
+const SCORE_SAVE_DEBOUNCE_MS = 350
+const SCORE_SAVE_SUCCESS_MS = 1200
 
 export const useQuizStore = defineStore('quiz', () => {
   const currentGame = ref<Game | null>(null)
@@ -11,6 +20,14 @@ export const useQuizStore = defineStore('quiz', () => {
   const isLoading = ref(false)
   const error = ref('')
   const isEditable = computed(() => currentGame.value?.status !== 'finished')
+  const scoreSaveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const scoreSaveMessage = ref('')
+  const scoreSaveInFlight = ref(false)
+  const scoreSaveQueued = ref(false)
+  const pendingScoreChanges = ref<Record<string, PendingScoreChange>>({})
+  const scoreRevisions = ref<Record<string, number>>({})
+  const scoreFlushTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+  const scoreStatusTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
   const sortedTeams = computed<Team[]>(() => {
     if (!currentGame.value) {
@@ -18,6 +35,39 @@ export const useQuizStore = defineStore('quiz', () => {
     }
 
     return sortTeamsByScore(currentGame.value.teams, currentGame.value.rounds)
+  })
+
+  const hasPendingScoreChanges = computed(() => Object.keys(pendingScoreChanges.value).length > 0)
+  const isSavingScores = computed(() => scoreSaveInFlight.value || hasPendingScoreChanges.value)
+  const scoreSyncText = computed(() => {
+    if (scoreSaveState.value === 'error') {
+      return scoreSaveMessage.value || 'Не удалось сохранить баллы.'
+    }
+
+    if (scoreSaveState.value === 'saved') {
+      return 'Баллы сохранены'
+    }
+
+    if (scoreSaveState.value === 'saving' || hasPendingScoreChanges.value) {
+      return 'Сохраняем баллы...'
+    }
+
+    return ''
+  })
+  const scoreSyncTone = computed(() => {
+    if (scoreSaveState.value === 'error') {
+      return 'error'
+    }
+
+    if (scoreSaveState.value === 'saved') {
+      return 'saved'
+    }
+
+    if (scoreSaveState.value === 'saving' || hasPendingScoreChanges.value) {
+      return 'saving'
+    }
+
+    return 'idle'
   })
 
   async function createGame(input: CreateGameInput): Promise<Game> {
@@ -32,8 +82,12 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   async function loadGame(gameId?: string): Promise<void> {
+    if (!gameId || currentGame.value?.id !== gameId) {
+      resetScoreAutosaveState()
+    }
+
     if (gameId) {
-      await requestOptionalGame(() => $fetch<Game>(`/api/games/${gameId}`))
+      await requestOptionalGame(() => $fetch<Game>(`/api/games/${gameId}`), gameId)
       return
     }
 
@@ -45,10 +99,16 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   async function openGame(gameId: string): Promise<void> {
-    await requestOptionalGame(() => $fetch<Game>(`/api/games/${gameId}`))
+    await requestOptionalGame(() => $fetch<Game>(`/api/games/${gameId}`), gameId)
   }
 
   async function finishGame(): Promise<void> {
+    await flushPendingScoreChanges(true)
+
+    if (scoreSaveState.value === 'error' || scoreSaveInFlight.value || hasPendingScoreChanges.value) {
+      return
+    }
+
     const gameId = currentGame.value?.id
 
     if (!gameId) {
@@ -57,7 +117,7 @@ export const useQuizStore = defineStore('quiz', () => {
 
     await requestGame(() => $fetch<Game>(`/api/games/${gameId}/finish`, {
       method: 'POST'
-    }))
+    }), true, false, gameId)
   }
 
   async function updateGameTitle(title: string): Promise<void> {
@@ -65,10 +125,12 @@ export const useQuizStore = defineStore('quiz', () => {
       return
     }
 
-    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}`, {
+    const gameId = currentGame.value.id
+
+    await requestGame(() => $fetch<Game>(`/api/games/${gameId}`, {
       method: 'PATCH',
       body: { title }
-    }))
+    }), true, false, gameId)
   }
 
   async function addTeam(name = `Команда ${(currentGame.value?.teams.length ?? 0) + 1}`): Promise<void> {
@@ -76,10 +138,12 @@ export const useQuizStore = defineStore('quiz', () => {
       return
     }
 
-    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}/teams`, {
+    const gameId = currentGame.value.id
+
+    await requestGame(() => $fetch<Game>(`/api/games/${gameId}/teams`, {
       method: 'POST',
       body: { name }
-    }))
+    }), true, false, gameId)
   }
 
   async function deleteTeam(teamId: string): Promise<void> {
@@ -87,9 +151,11 @@ export const useQuizStore = defineStore('quiz', () => {
       return
     }
 
-    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}/teams/${teamId}`, {
+    const gameId = currentGame.value.id
+
+    await requestGame(() => $fetch<Game>(`/api/games/${gameId}/teams/${teamId}`, {
       method: 'DELETE'
-    }))
+    }), true, false, gameId)
   }
 
   async function renameTeam(teamId: string, name: string): Promise<void> {
@@ -97,10 +163,12 @@ export const useQuizStore = defineStore('quiz', () => {
       return
     }
 
-    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}/teams/${teamId}`, {
+    const gameId = currentGame.value.id
+
+    await requestGame(() => $fetch<Game>(`/api/games/${gameId}/teams/${teamId}`, {
       method: 'PATCH',
       body: { name }
-    }))
+    }), true, false, gameId)
   }
 
   async function addRound(title = `Раунд ${(currentGame.value?.rounds.length ?? 0) + 1}`): Promise<void> {
@@ -108,10 +176,12 @@ export const useQuizStore = defineStore('quiz', () => {
       return
     }
 
-    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}/rounds`, {
+    const gameId = currentGame.value.id
+
+    await requestGame(() => $fetch<Game>(`/api/games/${gameId}/rounds`, {
       method: 'POST',
       body: { title }
-    }))
+    }), true, false, gameId)
   }
 
   async function deleteRound(roundId: string): Promise<void> {
@@ -119,9 +189,11 @@ export const useQuizStore = defineStore('quiz', () => {
       return
     }
 
-    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}/rounds/${roundId}`, {
+    const gameId = currentGame.value.id
+
+    await requestGame(() => $fetch<Game>(`/api/games/${gameId}/rounds/${roundId}`, {
       method: 'DELETE'
-    }))
+    }), true, false, gameId)
   }
 
   function renameRound(roundId: string, title: string): Promise<void> {
@@ -133,10 +205,12 @@ export const useQuizStore = defineStore('quiz', () => {
       return
     }
 
-    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}/rounds/${roundId}`, {
+    const gameId = currentGame.value.id
+
+    await requestGame(() => $fetch<Game>(`/api/games/${gameId}/rounds/${roundId}`, {
       method: 'PATCH',
       body: updates
-    }))
+    }), true, false, gameId)
   }
 
   async function updateTeamScore(
@@ -155,16 +229,26 @@ export const useQuizStore = defineStore('quiz', () => {
       return
     }
 
-    team.scores[roundId] = normalizeScoreInput(score, round)
+    const normalizedScore = normalizeScoreInput(score, round)
+    const key = getScoreCellKey(teamId, roundId)
+    const revision = (scoreRevisions.value[key] ?? 0) + 1
 
-    await requestGame(() => $fetch<Game>(`/api/games/${currentGame.value?.id}/scores`, {
-      method: 'PATCH',
-      body: {
+    team.scores[roundId] = normalizedScore
+    scoreRevisions.value = {
+      ...scoreRevisions.value,
+      [key]: revision
+    }
+    pendingScoreChanges.value = {
+      ...pendingScoreChanges.value,
+      [key]: {
         teamId,
         roundId,
-        score
+        score: normalizedScore,
+        revision
       }
-    }), false)
+    }
+    setScoreSaveState('saving')
+    scheduleScoreFlush()
   }
 
   function getTotalScore(team: Team): number {
@@ -177,6 +261,7 @@ export const useQuizStore = defineStore('quiz', () => {
     }
 
     const gameId = currentGame.value.id
+    resetScoreAutosaveState()
     currentGame.value = null
     error.value = ''
 
@@ -204,25 +289,33 @@ export const useQuizStore = defineStore('quiz', () => {
     return currentGame.value?.rounds.find((round) => round.id === roundId)
   }
 
-  async function requestOptionalGame(fetcher: () => Promise<Game | null>): Promise<void> {
+  async function requestOptionalGame(fetcher: () => Promise<Game | null>, expectedGameId?: string): Promise<void> {
     isLoading.value = true
     error.value = ''
 
     try {
       const game = await fetcher()
-      currentGame.value = game
-      if (game) {
-        upsertGame(game)
+
+      if (expectedGameId && currentGame.value?.id !== expectedGameId) {
+        return
       }
+
+      applyServerGame(game)
     } catch (requestError) {
       currentGame.value = null
+      resetScoreAutosaveState()
       error.value = getRequestMessage(requestError)
     } finally {
       isLoading.value = false
     }
   }
 
-  async function requestGame(fetcher: () => Promise<Game>, showLoading = true, throwOnError = false): Promise<Game> {
+  async function requestGame(
+    fetcher: () => Promise<Game>,
+    showLoading = true,
+    throwOnError = false,
+    expectedGameId?: string
+  ): Promise<Game> {
     if (showLoading) {
       isLoading.value = true
     }
@@ -231,8 +324,11 @@ export const useQuizStore = defineStore('quiz', () => {
     try {
       const game = await fetcher()
 
-      currentGame.value = game
-      upsertGame(game)
+      if (expectedGameId && currentGame.value?.id !== expectedGameId) {
+        return game
+      }
+
+      applyServerGame(game)
 
       return game
     } catch (requestError) {
@@ -276,6 +372,189 @@ export const useQuizStore = defineStore('quiz', () => {
     )
   }
 
+  async function flushPendingScoreChanges(immediate = false): Promise<boolean> {
+    if (!currentGame.value || !isEditable.value) {
+      return true
+    }
+
+    if (immediate) {
+      clearScoreFlushTimer()
+    }
+
+    const updates = Object.values(pendingScoreChanges.value)
+
+    if (updates.length === 0) {
+      if (scoreSaveState.value === 'saved') {
+        scheduleScoreStatusReset()
+      }
+
+      return true
+    }
+
+    if (scoreSaveInFlight.value) {
+      scoreSaveQueued.value = true
+      return true
+    }
+
+    scoreSaveInFlight.value = true
+    setScoreSaveState('saving')
+
+    const gameId = currentGame.value.id
+    const snapshot = new Map(updates.map((update) => [getScoreCellKey(update.teamId, update.roundId), update]))
+
+    try {
+      const response = await $fetch<Game>(`/api/games/${gameId}/scores/bulk`, {
+        method: 'PATCH',
+        body: {
+          updates: updates.map((update) => ({
+            teamId: update.teamId,
+            roundId: update.roundId,
+            score: update.score
+          }) satisfies ScoreUpdateInput)
+        }
+      })
+
+      if (currentGame.value?.id === gameId) {
+        currentGame.value.updatedAt = response.updatedAt
+        upsertGame(currentGame.value)
+      }
+
+      const nextPending = { ...pendingScoreChanges.value }
+
+      for (const [key, flushedUpdate] of snapshot) {
+        if (nextPending[key]?.revision === flushedUpdate.revision) {
+          delete nextPending[key]
+        }
+      }
+
+      pendingScoreChanges.value = nextPending
+
+      if (Object.keys(nextPending).length === 0) {
+        setScoreSaveState('saved')
+      } else {
+        setScoreSaveState('saving')
+        scoreSaveQueued.value = true
+      }
+
+      return true
+    } catch (requestError) {
+      setScoreSaveState('error', getRequestMessage(requestError))
+      return false
+    } finally {
+      scoreSaveInFlight.value = false
+
+      if (scoreSaveQueued.value) {
+        scoreSaveQueued.value = false
+        scheduleScoreFlush(0)
+      }
+    }
+  }
+
+  function scheduleScoreFlush(delay = SCORE_SAVE_DEBOUNCE_MS): void {
+    clearScoreFlushTimer()
+
+    scoreFlushTimer.value = setTimeout(() => {
+      scoreFlushTimer.value = null
+      void flushPendingScoreChanges()
+    }, delay)
+  }
+
+  function clearScoreFlushTimer(): void {
+    if (scoreFlushTimer.value) {
+      clearTimeout(scoreFlushTimer.value)
+      scoreFlushTimer.value = null
+    }
+  }
+
+  function scheduleScoreStatusReset(): void {
+    clearScoreStatusTimer()
+
+    scoreStatusTimer.value = setTimeout(() => {
+      if (scoreSaveState.value === 'saved') {
+        scoreSaveState.value = 'idle'
+        scoreSaveMessage.value = ''
+      }
+    }, SCORE_SAVE_SUCCESS_MS)
+  }
+
+  function clearScoreStatusTimer(): void {
+    if (scoreStatusTimer.value) {
+      clearTimeout(scoreStatusTimer.value)
+      scoreStatusTimer.value = null
+    }
+  }
+
+  function setScoreSaveState(state: 'idle' | 'saving' | 'saved' | 'error', message = ''): void {
+    clearScoreStatusTimer()
+    scoreSaveState.value = state
+    scoreSaveMessage.value = message
+
+    if (state === 'saved') {
+      scheduleScoreStatusReset()
+    }
+  }
+
+  function resetScoreAutosaveState(): void {
+    clearScoreFlushTimer()
+    clearScoreStatusTimer()
+    scoreSaveQueued.value = false
+    scoreSaveInFlight.value = false
+    pendingScoreChanges.value = {}
+    scoreRevisions.value = {}
+    scoreSaveMessage.value = ''
+    scoreSaveState.value = 'idle'
+  }
+
+  function applyServerGame(game: Game | null): void {
+    if (!game) {
+      resetScoreAutosaveState()
+      currentGame.value = null
+      return
+    }
+
+    if (currentGame.value && currentGame.value.id !== game.id) {
+      resetScoreAutosaveState()
+    }
+
+    const nextGame = mergePendingScoreChanges(game)
+    currentGame.value = nextGame
+    upsertGame(nextGame)
+  }
+
+  function mergePendingScoreChanges(game: Game): Game {
+    const localGame = currentGame.value
+
+    if (!localGame || localGame.id !== game.id || Object.keys(pendingScoreChanges.value).length === 0) {
+      return game
+    }
+
+    const nextGame = {
+      ...game,
+      rounds: game.rounds.map((round) => ({ ...round })),
+      teams: game.teams.map((team) => ({
+        ...team,
+        scores: { ...team.scores }
+      }))
+    }
+
+    for (const pendingChange of Object.values(pendingScoreChanges.value)) {
+      const localTeam = localGame.teams.find((team) => team.id === pendingChange.teamId)
+      const nextTeam = nextGame.teams.find((team) => team.id === pendingChange.teamId)
+
+      if (!localTeam || !nextTeam) {
+        continue
+      }
+
+      nextTeam.scores[pendingChange.roundId] = localTeam.scores[pendingChange.roundId] ?? pendingChange.score
+    }
+
+    return nextGame
+  }
+
+  function getScoreCellKey(teamId: string, roundId: string): string {
+    return `${teamId}:${roundId}`
+  }
+
   return {
     currentGame,
     games,
@@ -296,9 +575,14 @@ export const useQuizStore = defineStore('quiz', () => {
     renameRound,
     updateRoundSettings,
     updateTeamScore,
+    flushPendingScoreChanges,
     getTotalScore,
     clearGame,
-    isEditable
+    isEditable,
+    hasPendingScoreChanges,
+    isSavingScores,
+    scoreSyncText,
+    scoreSyncTone
   }
 })
 

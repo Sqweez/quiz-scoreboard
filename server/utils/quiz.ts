@@ -1,7 +1,7 @@
 import { createError } from 'h3'
 import { prisma } from './prisma'
 import { getGameStatusMeta, normalizeScoreInput } from '#shared/quiz'
-import type { CreateGameInput, Game, Round } from '#shared/quiz'
+import type { BulkScoreUpdateInput, CreateGameInput, Game, Round, ScoreUpdateInput } from '#shared/quiz'
 
 const gameInclude = {
   rounds: {
@@ -332,34 +332,41 @@ export async function updateGameScore(
   roundId: string,
   score: number | string | null | undefined
 ): Promise<Game> {
-  const game = await requireEditableGame(userId, gameId)
-  const team = game.teams.find((item) => item.id === teamId)
-  const round = game.rounds.find((item) => item.id === roundId)
+  return updateGameScores(userId, gameId, [{ teamId, roundId, score: score ?? null }])
+}
 
-  if (!team || !round) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: 'Team or round not found.'
-    })
+export async function updateGameScores(
+  userId: string,
+  gameId: string,
+  updates: BulkScoreUpdateInput['updates'] | ScoreUpdateInput[]
+): Promise<Game> {
+  const game = await requireEditableGame(userId, gameId)
+  const dedupedUpdates = normalizeScoreUpdates(game, updates)
+
+  if (dedupedUpdates.length === 0) {
+    return refreshGame(userId, gameId)
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.score.upsert({
-      where: {
-        teamId_roundId: {
-          teamId,
-          roundId
+    for (const update of dedupedUpdates) {
+      await tx.score.upsert({
+        where: {
+          teamId_roundId: {
+            teamId: update.teamId,
+            roundId: update.roundId
+          }
+        },
+        create: {
+          teamId: update.teamId,
+          roundId: update.roundId,
+          value: update.value
+        },
+        update: {
+          value: update.value
         }
-      },
-      create: {
-        teamId,
-        roundId,
-        value: normalizeScoreInput(score, round)
-      },
-      update: {
-        value: normalizeScoreInput(score, round)
-      }
-    })
+      })
+    }
+
     await touchGame(tx, game.id)
   })
 
@@ -460,4 +467,39 @@ async function touchGame(tx: { game: { update: typeof prisma.game.update } }, ga
     where: { id: gameId },
     data: { updatedAt: new Date() }
   })
+}
+
+function normalizeScoreUpdates(
+  game: PersistedGame,
+  updates: BulkScoreUpdateInput['updates'] | ScoreUpdateInput[]
+): Array<{
+  teamId: string
+  roundId: string
+  value: number
+}> {
+  const nextUpdates = new Map<string, {
+    teamId: string
+    roundId: string
+    value: number
+  }>()
+
+  for (const update of updates) {
+    const team = game.teams.find((item) => item.id === update.teamId)
+    const round = game.rounds.find((item) => item.id === update.roundId)
+
+    if (!team || !round) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: 'Team or round not found.'
+      })
+    }
+
+    nextUpdates.set(`${update.teamId}:${update.roundId}`, {
+      teamId: update.teamId,
+      roundId: update.roundId,
+      value: normalizeScoreInput(update.score, round)
+    })
+  }
+
+  return [...nextUpdates.values()]
 }

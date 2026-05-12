@@ -37,3 +37,13 @@ export type CreateGameInput = {
     questionsCount?: number | null
   }>
 }
+
+export type ScoreUpdateInput = {
+  teamId: string
+  roundId: string
+  score: number | string | null
+}
+
+export type BulkScoreUpdateInput = {
+  updates: ScoreUpdateInput[]
+}

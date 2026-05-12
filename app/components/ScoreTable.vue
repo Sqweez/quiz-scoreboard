@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onBeforeUnmount } from 'vue'
 import { Copy, Trophy } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/ui/table'
@@ -14,6 +15,7 @@ const props = defineProps<{
 const quizStore = useQuizStore()
 const { visibleTeams, freezeCurrentOrder, releaseCurrentOrder } = usePinnedTeamOrder(() => quizStore.sortedTeams)
 const { copyStatus, copyStatusText, copyResults } = useResultsClipboard()
+let scoreBlurTimer: ReturnType<typeof setTimeout> | null = null
 
 function updateScore(team: Team, round: Round, event: Event): void {
   const target = event.target as HTMLInputElement
@@ -34,6 +36,28 @@ function preventWheelStep(event: WheelEvent): void {
   event.currentTarget instanceof HTMLInputElement && event.currentTarget.blur()
 }
 
+function handleScoreFocus(): void {
+  if (scoreBlurTimer) {
+    clearTimeout(scoreBlurTimer)
+    scoreBlurTimer = null
+  }
+
+  freezeCurrentOrder()
+}
+
+function handleScoreBlur(): void {
+  releaseCurrentOrder()
+
+  if (scoreBlurTimer) {
+    clearTimeout(scoreBlurTimer)
+  }
+
+  scoreBlurTimer = setTimeout(() => {
+    scoreBlurTimer = null
+    void quizStore.flushPendingScoreChanges(true)
+  }, 120)
+}
+
 function handleScoreKeydown(event: KeyboardEvent): void {
   preventNativeNumberStep(event)
 
@@ -49,6 +73,13 @@ function copyCurrentResults(): void {
 
   copyResults(quizStore.sortedTeams, quizStore.currentGame.rounds)
 }
+
+onBeforeUnmount(() => {
+  if (scoreBlurTimer) {
+    clearTimeout(scoreBlurTimer)
+    scoreBlurTimer = null
+  }
+})
 </script>
 
 <template>
@@ -61,6 +92,17 @@ function copyCurrentResults(): void {
         </p>
       </div>
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <p
+          v-if="quizStore.scoreSyncText"
+          class="text-sm"
+          :class="{
+            'text-emerald-700': quizStore.scoreSyncTone === 'saved',
+            'text-destructive': quizStore.scoreSyncTone === 'error',
+            'text-muted-foreground': quizStore.scoreSyncTone === 'saving'
+          }"
+        >
+          {{ quizStore.scoreSyncText }}
+        </p>
         <p
           v-if="copyStatusText"
           class="text-sm"
@@ -145,9 +187,9 @@ function copyCurrentResults(): void {
               :max="round.maxScore ?? undefined"
               :value="scoreValue(team, round.id)"
               :disabled="props.readOnly"
-              @focus="freezeCurrentOrder"
+              @focus="handleScoreFocus"
               @input="updateScore(team, round, $event)"
-              @blur="releaseCurrentOrder"
+              @blur="handleScoreBlur"
               @keydown="handleScoreKeydown"
               @wheel="preventWheelStep"
             >

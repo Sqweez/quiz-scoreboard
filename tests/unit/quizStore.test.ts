@@ -73,6 +73,30 @@ describe('useQuizStore score autosave', () => {
   })
 })
 
+describe('useQuizStore game loading', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('applies a game fetched by id when no game is currently selected', async () => {
+    const store = useQuizStore()
+    const game = createGame()
+    const fetchMock = vi.fn().mockResolvedValue(game)
+
+    vi.stubGlobal('$fetch', fetchMock)
+
+    await store.loadGame(game.id)
+
+    expect(fetchMock).toHaveBeenCalledWith(`/api/games/${game.id}`)
+    expect(store.currentGame?.id).toBe(game.id)
+    expect(store.currentGame?.title).toBe(game.title)
+  })
+})
+
 function createStoreWithDelayedScoreSave(): {
   fetchMock: ReturnType<typeof vi.fn>
   store: ReturnType<typeof useQuizStore>

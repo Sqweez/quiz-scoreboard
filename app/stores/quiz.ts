@@ -28,6 +28,7 @@ export const useQuizStore = defineStore('quiz', () => {
   const scoreRevisions = ref<Record<string, number>>({})
   const scoreFlushTimer = ref<ReturnType<typeof setTimeout> | null>(null)
   const scoreStatusTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+  let activeGameLoadId: string | null = null
   let activeScoreFlush: Promise<boolean> | null = null
 
   const sortedTeams = computed<Team[]>(() => {
@@ -83,6 +84,8 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   async function loadGame(gameId?: string): Promise<void> {
+    activeGameLoadId = gameId || null
+
     if (!gameId || currentGame.value?.id !== gameId) {
       resetScoreAutosaveState()
     }
@@ -100,7 +103,7 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   async function openGame(gameId: string): Promise<void> {
-    await requestOptionalGame(() => $fetch<Game>(`/api/games/${gameId}`), gameId)
+    await loadGame(gameId)
   }
 
   async function finishGame(): Promise<void> {
@@ -291,23 +294,31 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   async function requestOptionalGame(fetcher: () => Promise<Game | null>, expectedGameId?: string): Promise<void> {
+    const requestGameId = expectedGameId || null
+
     isLoading.value = true
     error.value = ''
 
     try {
       const game = await fetcher()
 
-      if (expectedGameId && currentGame.value?.id !== expectedGameId) {
+      if (activeGameLoadId !== requestGameId || (expectedGameId && game?.id !== expectedGameId)) {
         return
       }
 
       applyServerGame(game)
     } catch (requestError) {
+      if (activeGameLoadId !== requestGameId) {
+        return
+      }
+
       currentGame.value = null
       resetScoreAutosaveState()
       error.value = getRequestMessage(requestError)
     } finally {
-      isLoading.value = false
+      if (activeGameLoadId === requestGameId) {
+        isLoading.value = false
+      }
     }
   }
 

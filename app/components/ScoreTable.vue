@@ -79,6 +79,8 @@ onBeforeUnmount(() => {
     clearTimeout(scoreBlurTimer)
     scoreBlurTimer = null
   }
+
+  void quizStore.flushPendingScoreChanges(true)
 })
 </script>
 

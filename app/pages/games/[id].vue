@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ArrowLeft, CheckCircle2, ListChecks, Medal, Trophy, Users } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
@@ -37,6 +37,26 @@ watch(
 onBeforeRouteLeave(async () => {
   await quizStore.flushPendingScoreChanges(true)
 })
+
+onMounted(() => {
+  window.addEventListener('pagehide', flushScoresBeforePageHide)
+  document.addEventListener('visibilitychange', flushScoresWhenHidden)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('pagehide', flushScoresBeforePageHide)
+  document.removeEventListener('visibilitychange', flushScoresWhenHidden)
+})
+
+function flushScoresBeforePageHide(): void {
+  void quizStore.flushPendingScoreChanges(true)
+}
+
+function flushScoresWhenHidden(): void {
+  if (document.visibilityState === 'hidden') {
+    void quizStore.flushPendingScoreChanges(true)
+  }
+}
 
 function updateTitle(value: string | number | null | undefined): void {
   const title = String(value ?? '')

@@ -28,6 +28,7 @@ export const useQuizStore = defineStore('quiz', () => {
   const scoreRevisions = ref<Record<string, number>>({})
   const scoreFlushTimer = ref<ReturnType<typeof setTimeout> | null>(null)
   const scoreStatusTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+  let activeScoreFlush: Promise<boolean> | null = null
 
   const sortedTeams = computed<Team[]>(() => {
     if (!currentGame.value) {
@@ -393,6 +394,13 @@ export const useQuizStore = defineStore('quiz', () => {
 
     if (scoreSaveInFlight.value) {
       scoreSaveQueued.value = true
+
+      if (immediate && activeScoreFlush) {
+        await activeScoreFlush
+
+        return flushPendingScoreChanges(true)
+      }
+
       return true
     }
 
@@ -402,6 +410,16 @@ export const useQuizStore = defineStore('quiz', () => {
     const gameId = currentGame.value.id
     const snapshot = new Map(updates.map((update) => [getScoreCellKey(update.teamId, update.roundId), update]))
 
+    activeScoreFlush = persistScoreUpdates(gameId, snapshot, updates)
+
+    return activeScoreFlush
+  }
+
+  async function persistScoreUpdates(
+    gameId: string,
+    snapshot: Map<string, PendingScoreChange>,
+    updates: PendingScoreChange[]
+  ): Promise<boolean> {
     try {
       const response = await $fetch<Game>(`/api/games/${gameId}/scores/bulk`, {
         method: 'PATCH',
@@ -442,6 +460,10 @@ export const useQuizStore = defineStore('quiz', () => {
       return false
     } finally {
       scoreSaveInFlight.value = false
+
+      if (activeScoreFlush) {
+        activeScoreFlush = null
+      }
 
       if (scoreSaveQueued.value) {
         scoreSaveQueued.value = false
@@ -499,6 +521,7 @@ export const useQuizStore = defineStore('quiz', () => {
     clearScoreStatusTimer()
     scoreSaveQueued.value = false
     scoreSaveInFlight.value = false
+    activeScoreFlush = null
     pendingScoreChanges.value = {}
     scoreRevisions.value = {}
     scoreSaveMessage.value = ''

@@ -79,8 +79,8 @@ async function submitAuth(): Promise<void> {
 
 <template>
   <main class="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-10 px-4 py-12">
-    <header class="space-y-3 border-b border-[var(--rule-strong)] pb-6">
-      <p class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+    <header class="space-y-3 border-b border-rule-strong pb-6">
+      <p class="eyebrow text-muted-foreground">
         Таблица квиза
       </p>
       <h1 class="font-display text-4xl font-medium leading-tight">
@@ -96,7 +96,7 @@ async function submitAuth(): Promise<void> {
         type="button"
         class="border-b pb-1 transition-colors"
         :class="!isSignup
-          ? 'border-[var(--rule-strong)] font-medium text-foreground'
+          ? 'border-rule-strong font-medium text-foreground'
           : 'border-transparent text-muted-foreground hover:text-foreground'"
         :aria-pressed="!isSignup"
         @click="mode = 'signin'"
@@ -107,7 +107,7 @@ async function submitAuth(): Promise<void> {
         type="button"
         class="border-b pb-1 transition-colors"
         :class="isSignup
-          ? 'border-[var(--rule-strong)] font-medium text-foreground'
+          ? 'border-rule-strong font-medium text-foreground'
           : 'border-transparent text-muted-foreground hover:text-foreground'"
         :aria-pressed="isSignup"
         @click="mode = 'signup'"
@@ -118,7 +118,7 @@ async function submitAuth(): Promise<void> {
 
     <form class="space-y-6" @submit.prevent="submitAuth">
       <div class="space-y-2">
-        <Label for="email" class="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+        <Label for="email" class="eyebrow-tight text-muted-foreground">
           Email
         </Label>
         <Input
@@ -132,7 +132,7 @@ async function submitAuth(): Promise<void> {
       </div>
 
       <div class="space-y-2">
-        <Label for="password" class="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+        <Label for="password" class="eyebrow-tight text-muted-foreground">
           Пароль
         </Label>
         <Input
@@ -145,10 +145,10 @@ async function submitAuth(): Promise<void> {
         />
       </div>
 
-      <p v-if="error" class="border-t border-[var(--primary)] bg-[var(--secondary)] px-3 py-2 text-sm text-foreground">
+      <p v-if="error" class="border-t border-primary bg-secondary px-3 py-2 text-sm text-foreground">
         {{ error }}
       </p>
-      <p v-if="success" class="border-t border-foreground/30 bg-[var(--secondary)] px-3 py-2 text-sm text-foreground">
+      <p v-if="success" class="border-t border-foreground/30 bg-secondary px-3 py-2 text-sm text-foreground">
         {{ success }}
       </p>
 
@@ -162,7 +162,7 @@ async function submitAuth(): Promise<void> {
       <span>{{ isSignup ? 'Уже есть аккаунт?' : 'Нет аккаунта?' }}</span>
       <button
         type="button"
-        class="ml-1 font-medium text-foreground underline decoration-[var(--rule-strong)] underline-offset-4 transition-colors hover:text-[var(--primary)] hover:decoration-[var(--primary)]"
+        class="ml-1 font-medium text-foreground underline decoration-rule-strong underline-offset-4 transition-colors hover:text-primary hover:decoration-primary"
         @click="mode = isSignup ? 'signin' : 'signup'"
       >
         {{ isSignup ? 'Войти' : 'Создать' }}

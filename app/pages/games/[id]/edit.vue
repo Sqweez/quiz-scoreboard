@@ -34,8 +34,8 @@ watch(
         Назад к таблице
       </NuxtLink>
 
-      <header class="border-b border-[var(--rule-strong)] pb-6">
-        <p class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+      <header class="border-b border-rule-strong pb-6">
+        <p class="eyebrow text-muted-foreground">
           Настройка игры
         </p>
         <h1 class="mt-3 font-display text-3xl font-medium leading-tight lg:text-4xl">
@@ -48,7 +48,7 @@ watch(
 
       <p
         v-if="quizStore.error"
-        class="border-t border-[var(--primary)] bg-[var(--secondary)] px-3 py-2 text-sm text-foreground"
+        class="border-t border-primary bg-secondary px-3 py-2 text-sm text-foreground"
       >
         {{ quizStore.error }}
       </p>
@@ -60,7 +60,7 @@ watch(
     </template>
 
     <section v-else class="flex flex-col items-start gap-4 py-16">
-      <p class="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+      <p class="eyebrow text-muted-foreground">
         {{ quizStore.isLoading ? 'Загрузка' : 'Не найдено' }}
       </p>
       <h1 class="font-display text-3xl font-medium">
@@ -68,7 +68,7 @@ watch(
       </h1>
       <NuxtLink
         to="/"
-        class="text-sm font-medium text-foreground underline decoration-[var(--rule-strong)] underline-offset-4 transition-colors hover:text-[var(--primary)] hover:decoration-[var(--primary)]"
+        class="text-sm font-medium text-foreground underline decoration-rule-strong underline-offset-4 transition-colors hover:text-primary hover:decoration-primary"
       >
         Вернуться к списку
       </NuxtLink>

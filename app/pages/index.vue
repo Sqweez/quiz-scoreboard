@@ -51,9 +51,9 @@ async function signOut(): Promise<void> {
 
 <template>
   <main class="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-10 px-4 py-8 lg:px-8 lg:py-12">
-    <header class="flex flex-wrap items-end justify-between gap-6 border-b border-[var(--rule-strong)] pb-6">
+    <header class="flex flex-wrap items-end justify-between gap-6 border-b border-rule-strong pb-6">
       <div class="space-y-3">
-        <p class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+        <p class="eyebrow text-muted-foreground">
           Таблица квиза
         </p>
         <h1 class="font-display text-4xl font-medium leading-none lg:text-5xl">
@@ -89,7 +89,7 @@ async function signOut(): Promise<void> {
     </header>
 
     <section v-if="!user" class="flex flex-col items-start gap-4 py-12">
-      <p class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+      <p class="eyebrow text-muted-foreground">
         Доступ закрыт
       </p>
       <h2 class="font-display text-3xl font-medium">Войдите, чтобы увидеть свои игры</h2>
@@ -107,14 +107,14 @@ async function signOut(): Promise<void> {
     </section>
 
     <section v-else-if="quizStore.error" class="space-y-2 py-12">
-      <p class="text-[11px] uppercase tracking-[0.18em] text-[var(--primary)]">
+      <p class="eyebrow text-primary">
         Ошибка
       </p>
       <p class="text-foreground">{{ quizStore.error }}</p>
     </section>
 
     <section v-else-if="quizStore.games.length === 0" class="flex flex-col items-start gap-4 py-12">
-      <p class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+      <p class="eyebrow text-muted-foreground">
         Чисто
       </p>
       <h2 class="font-display text-3xl font-medium">Пока нет игр</h2>
@@ -131,15 +131,15 @@ async function signOut(): Promise<void> {
 
     <template v-else>
       <section v-if="draftGames.length > 0" class="space-y-3">
-        <div class="flex items-baseline justify-between gap-3 border-b border-[var(--rule-strong)] pb-2">
-          <h2 class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+        <div class="flex items-baseline justify-between gap-3 border-b border-rule-strong pb-2">
+          <h2 class="eyebrow text-muted-foreground">
             Идут сейчас
           </h2>
-          <span class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <span class="eyebrow text-muted-foreground">
             {{ draftGames.length }}
           </span>
         </div>
-        <ul class="divide-y divide-[var(--rule)]">
+        <ul class="divide-y divide-rule">
           <li v-for="game in draftGames" :key="game.id">
             <NuxtLink
               :to="`/games/${game.id}`"
@@ -149,11 +149,11 @@ async function signOut(): Promise<void> {
                 <p class="font-display text-2xl font-medium leading-tight">
                   {{ game.title }}
                 </p>
-                <p class="mt-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                <p class="mt-1 eyebrow-tight text-muted-foreground">
                   {{ game.teams.length }} команд · {{ game.rounds.length }} раундов
                 </p>
               </div>
-              <span class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors group-hover:text-[var(--primary)]">
+              <span class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors group-hover:text-primary">
                 {{ game.statusActionLabel }}
                 <ArrowRight class="size-3.5" />
               </span>
@@ -163,15 +163,15 @@ async function signOut(): Promise<void> {
       </section>
 
       <section v-if="finishedGames.length > 0" class="space-y-3">
-        <div class="flex items-baseline justify-between gap-3 border-b border-[var(--rule-strong)] pb-2">
-          <h2 class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+        <div class="flex items-baseline justify-between gap-3 border-b border-rule-strong pb-2">
+          <h2 class="eyebrow text-muted-foreground">
             Завершённые
           </h2>
-          <span class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <span class="eyebrow text-muted-foreground">
             {{ finishedGames.length }}
           </span>
         </div>
-        <ul class="divide-y divide-[var(--rule)]">
+        <ul class="divide-y divide-rule">
           <li v-for="game in finishedGames" :key="game.id">
             <NuxtLink
               :to="`/games/${game.id}`"
@@ -181,11 +181,11 @@ async function signOut(): Promise<void> {
                 <p class="font-display text-xl leading-tight text-foreground">
                   {{ game.title }}
                 </p>
-                <p class="mt-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                <p class="mt-1 eyebrow-tight text-muted-foreground">
                   {{ game.teams.length }} команд · {{ game.rounds.length }} раундов
                 </p>
               </div>
-              <span class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors group-hover:text-[var(--primary)]">
+              <span class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors group-hover:text-primary">
                 Открыть
                 <ArrowRight class="size-3.5" />
               </span>

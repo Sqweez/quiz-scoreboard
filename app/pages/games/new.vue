@@ -17,8 +17,8 @@ definePageMeta({
       Все игры
     </NuxtLink>
 
-    <header class="border-b border-[var(--rule-strong)] pb-6">
-      <p class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+    <header class="border-b border-rule-strong pb-6">
+      <p class="eyebrow text-muted-foreground">
         Новая игра
       </p>
       <h1 class="mt-3 font-display text-4xl font-medium leading-tight lg:text-5xl">

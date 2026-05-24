@@ -136,6 +136,24 @@ input[type='number']::-webkit-inner-spin-button {
     letter-spacing: -0.015em;
   }
 
+  /* Small all-caps spaced label used as a section eyebrow (e.g. above page
+     titles, on column headers, on count badges). Two variants: the default
+     `eyebrow` is for page/section scale, `eyebrow-tight` is for in-table
+     headers and dense form labels. */
+  .eyebrow {
+    font-size: 11px;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+  }
+
+  .eyebrow-tight {
+    font-size: 11px;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+
   /* Inline editable affordance: invisible until hover/focus, then a thin
      underline appears beneath the editable text. Used on game title and
      team-name inputs that visually masquerade as headings. */

@@ -166,8 +166,8 @@ function pluralize(count: number, one: string, few: string, many: string): strin
         Все игры
       </NuxtLink>
 
-      <header class="border-b border-[var(--rule-strong)] pb-6">
-        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+      <header class="border-b border-rule-strong pb-6">
+        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 eyebrow text-muted-foreground">
           <span>{{ isFinished ? 'Завершено' : 'Идёт игра' }}</span>
           <span aria-hidden="true">·</span>
           <span>{{ metaLine }}</span>
@@ -177,7 +177,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
             class="normal-case tracking-normal"
             :class="{
               'text-foreground': quizStore.scoreSyncTone === 'saved',
-              'text-[var(--primary)]': quizStore.scoreSyncTone === 'error',
+              'text-primary': quizStore.scoreSyncTone === 'error',
               'text-muted-foreground': quizStore.scoreSyncTone === 'saving'
             }"
           >
@@ -207,7 +207,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
             <span
               v-if="copyStatusText"
               class="text-xs"
-              :class="copyStatus === 'error' ? 'text-[var(--primary)]' : 'text-muted-foreground'"
+              :class="copyStatus === 'error' ? 'text-primary' : 'text-muted-foreground'"
             >
               {{ copyStatusText }}
             </span>
@@ -222,25 +222,25 @@ function pluralize(count: number, one: string, few: string, many: string): strin
           </div>
         </div>
 
-        <p v-if="titleError" class="mt-2 text-sm text-[var(--primary)]">
+        <p v-if="titleError" class="mt-2 text-sm text-primary">
           {{ titleError }}
         </p>
       </header>
 
       <p
         v-if="quizStore.error"
-        class="border-l-0 border-t border-[var(--primary)] bg-[var(--secondary)] px-3 py-2 text-sm text-foreground"
+        class="border-l-0 border-t border-primary bg-secondary px-3 py-2 text-sm text-foreground"
       >
         {{ quizStore.error }}
       </p>
 
       <ScoreTable :read-only="isFinished" />
 
-      <footer class="flex flex-wrap items-center justify-end gap-4 border-t border-[var(--rule)] pt-6 text-sm">
+      <footer class="flex flex-wrap items-center justify-end gap-4 border-t border-rule pt-6 text-sm">
         <button
           v-if="!isFinished"
           type="button"
-          class="inline-flex items-center gap-2 font-medium text-foreground transition-colors hover:text-[var(--primary)] disabled:opacity-60"
+          class="inline-flex items-center gap-2 font-medium text-foreground transition-colors hover:text-primary disabled:opacity-60"
           :disabled="quizStore.isSavingScores"
           @click="finishCurrentGame"
         >
@@ -251,7 +251,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
         <template v-if="!isConfirmingDelete">
           <button
             type="button"
-            class="text-muted-foreground underline decoration-[var(--rule)] underline-offset-4 transition-colors hover:text-[var(--primary)] hover:decoration-[var(--primary)]"
+            class="text-muted-foreground underline decoration-rule underline-offset-4 transition-colors hover:text-primary hover:decoration-primary"
             @click="requestDelete"
           >
             Удалить игру
@@ -262,7 +262,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
           <span class="text-foreground">Удалить навсегда?</span>
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 font-medium text-[var(--primary)] underline decoration-[var(--primary)]/40 underline-offset-4 hover:decoration-[var(--primary)] disabled:opacity-60"
+            class="inline-flex items-center gap-1.5 font-medium text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary disabled:opacity-60"
             :disabled="isDeleting"
             @click="confirmDelete"
           >
@@ -283,7 +283,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
     </template>
 
     <section v-else class="flex flex-col items-start gap-4 py-16">
-      <p class="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+      <p class="eyebrow text-muted-foreground">
         {{ quizStore.isLoading ? 'Загрузка' : 'Не найдено' }}
       </p>
       <h1 class="font-display text-3xl font-medium">
@@ -294,7 +294,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
       </p>
       <NuxtLink
         to="/"
-        class="text-sm font-medium text-foreground underline decoration-[var(--rule-strong)] underline-offset-4 transition-colors hover:text-[var(--primary)] hover:decoration-[var(--primary)]"
+        class="text-sm font-medium text-foreground underline decoration-rule-strong underline-offset-4 transition-colors hover:text-primary hover:decoration-primary"
       >
         Вернуться к списку
       </NuxtLink>

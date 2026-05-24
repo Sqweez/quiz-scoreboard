@@ -61,9 +61,9 @@ function confirmDelete(roundId: string): void {
 
 <template>
   <section class="space-y-4">
-    <header class="flex items-baseline justify-between gap-3 border-b border-[var(--rule-strong)] pb-2">
+    <header class="flex items-baseline justify-between gap-3 border-b border-rule-strong pb-2">
       <h2 class="font-display text-xl font-medium">Раунды</h2>
-      <span class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+      <span class="eyebrow text-muted-foreground">
         {{ quizStore.currentGame?.rounds.length ?? 0 }}
       </span>
     </header>
@@ -80,7 +80,7 @@ function confirmDelete(roundId: string): void {
       </Button>
     </div>
 
-    <ul class="divide-y divide-[var(--rule)]">
+    <ul class="divide-y divide-rule">
       <li
         v-for="(round, index) in quizStore.currentGame?.rounds"
         :key="round.id"
@@ -100,7 +100,7 @@ function confirmDelete(roundId: string): void {
         >
 
         <label class="flex items-baseline gap-2 text-sm text-muted-foreground">
-          <span class="text-[11px] uppercase tracking-[0.14em]">Макс</span>
+          <span class="eyebrow-tight">Макс</span>
           <input
             :value="round.maxScore ?? ''"
             type="number"
@@ -112,7 +112,7 @@ function confirmDelete(roundId: string): void {
         </label>
 
         <label class="flex items-baseline gap-2 text-sm text-muted-foreground">
-          <span class="text-[11px] uppercase tracking-[0.14em]">Вопросы</span>
+          <span class="eyebrow-tight">Вопросы</span>
           <input
             :value="round.questionsCount ?? ''"
             type="number"
@@ -127,7 +127,7 @@ function confirmDelete(roundId: string): void {
           <template v-if="confirmingId !== round.id">
             <button
               type="button"
-              class="text-muted-foreground transition-colors hover:text-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
+              class="text-muted-foreground transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="(quizStore.currentGame?.rounds.length ?? 0) <= 1"
               aria-label="Удалить раунд"
               @click="requestDelete(round.id)"
@@ -138,7 +138,7 @@ function confirmDelete(roundId: string): void {
           <template v-else>
             <button
               type="button"
-              class="font-medium text-[var(--primary)] underline decoration-[var(--primary)]/40 underline-offset-4 hover:decoration-[var(--primary)]"
+              class="font-medium text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
               @click="confirmDelete(round.id)"
             >
               Подтвердить
@@ -155,6 +155,6 @@ function confirmDelete(roundId: string): void {
       </li>
     </ul>
 
-    <p v-if="error" class="text-sm text-[var(--primary)]">{{ error }}</p>
+    <p v-if="error" class="text-sm text-primary">{{ error }}</p>
   </section>
 </template>

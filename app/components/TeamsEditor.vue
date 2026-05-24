@@ -51,9 +51,9 @@ function confirmDelete(teamId: string): void {
 
 <template>
   <section class="space-y-4">
-    <header class="flex items-baseline justify-between gap-3 border-b border-[var(--rule-strong)] pb-2">
+    <header class="flex items-baseline justify-between gap-3 border-b border-rule-strong pb-2">
       <h2 class="font-display text-xl font-medium">Команды</h2>
-      <span class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+      <span class="eyebrow text-muted-foreground">
         {{ quizStore.currentGame?.teams.length ?? 0 }}
       </span>
     </header>
@@ -70,7 +70,7 @@ function confirmDelete(teamId: string): void {
       </Button>
     </div>
 
-    <ul class="divide-y divide-[var(--rule)]">
+    <ul class="divide-y divide-rule">
       <li
         v-for="(team, index) in quizStore.currentGame?.teams"
         :key="team.id"
@@ -93,7 +93,7 @@ function confirmDelete(teamId: string): void {
           <template v-if="confirmingId !== team.id">
             <button
               type="button"
-              class="text-sm text-muted-foreground transition-colors hover:text-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
+              class="text-sm text-muted-foreground transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="(quizStore.currentGame?.teams.length ?? 0) <= 1"
               aria-label="Удалить команду"
               @click="requestDelete(team.id)"
@@ -104,7 +104,7 @@ function confirmDelete(teamId: string): void {
           <template v-else>
             <button
               type="button"
-              class="text-sm font-medium text-[var(--primary)] underline decoration-[var(--primary)]/40 underline-offset-4 hover:decoration-[var(--primary)]"
+              class="text-sm font-medium text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
               @click="confirmDelete(team.id)"
             >
               Подтвердить
@@ -121,6 +121,6 @@ function confirmDelete(teamId: string): void {
       </li>
     </ul>
 
-    <p v-if="error" class="text-sm text-[var(--primary)]">{{ error }}</p>
+    <p v-if="error" class="text-sm text-primary">{{ error }}</p>
   </section>
 </template>

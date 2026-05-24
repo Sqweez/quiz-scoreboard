@@ -125,10 +125,10 @@ onBeforeUnmount(() => {
     -->
     <div
       aria-live="polite"
-      class="sticky top-0 z-20 -mt-px flex items-baseline gap-3 border-b border-[var(--rule-strong)] bg-background/95 py-3 backdrop-blur transition-opacity duration-150"
+      class="sticky top-0 z-20 -mt-px flex items-baseline gap-3 border-b border-rule-strong bg-background/95 py-3 backdrop-blur transition-opacity duration-150"
       :class="activeContext ? 'opacity-100' : 'pointer-events-none opacity-0'"
     >
-      <span class="text-[11px] uppercase tracking-[0.18em] text-[var(--primary)]">
+      <span class="eyebrow text-primary">
         Редактируем
       </span>
       <span class="font-display text-2xl font-semibold leading-none text-foreground">
@@ -153,14 +153,14 @@ onBeforeUnmount(() => {
         </colgroup>
 
         <thead>
-          <tr class="border-b border-[var(--rule-strong)] text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+          <tr class="border-b border-rule-strong eyebrow-tight text-muted-foreground">
             <th scope="col" class="py-3 pl-3 pr-2 text-left font-medium sm:pl-4">
               №
             </th>
             <th scope="col" class="py-3 pr-3 text-left font-medium">
               Команда
             </th>
-            <th scope="col" class="border-l border-[var(--rule)] py-3 pl-3 pr-2 text-right font-medium">
+            <th scope="col" class="border-l border-rule py-3 pl-3 pr-2 text-right font-medium">
               Σ
             </th>
             <th
@@ -187,7 +187,7 @@ onBeforeUnmount(() => {
           <tr
             v-for="(team, index) in visibleTeams"
             :key="team.id"
-            class="border-b border-[var(--rule)] transition-colors hover:bg-secondary/60 focus-within:!bg-[var(--primary)]/[0.07]"
+            class="border-b border-rule transition-colors hover:bg-secondary/60 focus-within:!bg-primary/[0.07]"
             :class="{
               'bg-secondary/35': index % 2 === 1
             }"
@@ -197,7 +197,7 @@ onBeforeUnmount(() => {
                 <span
                   v-if="index === 0"
                   aria-hidden="true"
-                  class="inline-block size-1.5 rounded-full bg-[var(--leader)]"
+                  class="inline-block size-1.5 rounded-full bg-leader"
                 />
                 <span
                   :class="index === 0
@@ -218,7 +218,7 @@ onBeforeUnmount(() => {
               </span>
             </td>
 
-            <td class="border-l border-[var(--rule)] py-3.5 pl-3 pr-2 text-right align-middle">
+            <td class="border-l border-rule py-3.5 pl-3 pr-2 text-right align-middle">
               <span
                 class="font-display text-3xl tabular-nums text-foreground"
                 :class="index === 0 ? 'font-semibold' : 'font-medium'"
@@ -233,7 +233,7 @@ onBeforeUnmount(() => {
               class="relative py-3.5 pl-2 pr-2 text-right align-middle last:pr-3 sm:last:pr-4"
             >
               <input
-                class="peer ml-auto block h-10 w-full max-w-16 rounded-none border-0 border-b border-[var(--rule)] bg-transparent px-1 text-right font-display text-xl tabular-nums text-foreground/85 outline-none transition-colors placeholder:text-muted-foreground/40 hover:border-[var(--rule-strong)] hover:text-foreground focus:border-[var(--primary)] focus:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                class="peer ml-auto block h-10 w-full max-w-16 rounded-none border-0 border-b border-rule bg-transparent px-1 text-right font-display text-xl tabular-nums text-foreground/85 outline-none transition-colors placeholder:text-muted-foreground/40 hover:border-rule-strong hover:text-foreground focus:border-primary focus:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 type="number"
                 inputmode="numeric"
                 min="0"

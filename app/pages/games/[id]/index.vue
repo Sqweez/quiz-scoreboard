@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ArrowLeft, Check, Copy, Pencil, X } from 'lucide-vue-next'
+import { Button } from '~/components/ui/button'
 import { Spinner } from '~/components/ui/spinner'
 import ScoreTable from '~/components/ScoreTable.vue'
 import { useResultsClipboard } from '~/composables/useResultsClipboard'
@@ -184,7 +185,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
           </span>
         </div>
 
-        <div class="mt-4 flex items-start justify-between gap-4">
+        <div class="mt-4 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <label class="flex-1 text-foreground">
             <span class="sr-only">Название игры</span>
             <input
@@ -198,14 +199,27 @@ function pluralize(count: number, one: string, few: string, many: string): strin
             >
           </label>
 
-          <NuxtLink
-            v-if="!isFinished"
-            :to="`/games/${quizStore.currentGame.id}/edit`"
-            class="mt-3 inline-flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Pencil class="size-3.5" />
-            Команды и раунды
-          </NuxtLink>
+          <div class="flex flex-col items-start gap-2 lg:items-end">
+            <Button type="button" @click="shareResults">
+              <Copy class="size-4" />
+              Скопировать результаты
+            </Button>
+            <span
+              v-if="copyStatusText"
+              class="text-xs"
+              :class="copyStatus === 'error' ? 'text-[var(--primary)]' : 'text-muted-foreground'"
+            >
+              {{ copyStatusText }}
+            </span>
+            <NuxtLink
+              v-if="!isFinished"
+              :to="`/games/${quizStore.currentGame.id}/edit`"
+              class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Pencil class="size-3.5" />
+              Команды и раунды
+            </NuxtLink>
+          </div>
         </div>
 
         <p v-if="titleError" class="mt-2 text-sm text-[var(--primary)]">
@@ -222,72 +236,49 @@ function pluralize(count: number, one: string, few: string, many: string): strin
 
       <ScoreTable :read-only="isFinished" />
 
-      <footer class="flex flex-col gap-6 border-t border-[var(--rule)] pt-6">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <button
-              type="button"
-              class="inline-flex items-center gap-2 font-medium text-foreground transition-colors hover:text-[var(--primary)]"
-              @click="shareResults"
-            >
-              <Copy class="size-4" />
-              Поделиться итогами
-            </button>
+      <footer class="flex flex-wrap items-center justify-end gap-4 border-t border-[var(--rule)] pt-6 text-sm">
+        <button
+          v-if="!isFinished"
+          type="button"
+          class="inline-flex items-center gap-2 font-medium text-foreground transition-colors hover:text-[var(--primary)] disabled:opacity-60"
+          :disabled="quizStore.isSavingScores"
+          @click="finishCurrentGame"
+        >
+          <Check class="size-4" />
+          Завершить игру
+        </button>
 
-            <span
-              v-if="copyStatusText"
-              class="text-muted-foreground"
-              :class="copyStatus === 'error' ? 'text-[var(--primary)]' : ''"
-            >
-              {{ copyStatusText }}
-            </span>
-          </div>
+        <template v-if="!isConfirmingDelete">
+          <button
+            type="button"
+            class="text-muted-foreground underline decoration-[var(--rule)] underline-offset-4 transition-colors hover:text-[var(--primary)] hover:decoration-[var(--primary)]"
+            @click="requestDelete"
+          >
+            Удалить игру
+          </button>
+        </template>
 
-          <div class="flex flex-wrap items-center gap-4 text-sm">
-            <button
-              v-if="!isFinished"
-              type="button"
-              class="inline-flex items-center gap-2 font-medium text-foreground transition-colors hover:text-[var(--primary)] disabled:opacity-60"
-              :disabled="quizStore.isSavingScores"
-              @click="finishCurrentGame"
-            >
-              <Check class="size-4" />
-              Завершить игру
-            </button>
-
-            <template v-if="!isConfirmingDelete">
-              <button
-                type="button"
-                class="text-sm text-muted-foreground underline decoration-[var(--rule)] underline-offset-4 transition-colors hover:text-[var(--primary)] hover:decoration-[var(--primary)]"
-                @click="requestDelete"
-              >
-                Удалить игру
-              </button>
-            </template>
-
-            <template v-else>
-              <span class="text-foreground">Удалить навсегда?</span>
-              <button
-                type="button"
-                class="inline-flex items-center gap-1.5 font-medium text-[var(--primary)] underline decoration-[var(--primary)]/40 underline-offset-4 hover:decoration-[var(--primary)] disabled:opacity-60"
-                :disabled="isDeleting"
-                @click="confirmDelete"
-              >
-                <Spinner v-if="isDeleting" />
-                Да, удалить
-              </button>
-              <button
-                type="button"
-                class="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
-                :disabled="isDeleting"
-                @click="cancelDelete"
-              >
-                <X class="size-3.5" />
-                Отмена
-              </button>
-            </template>
-          </div>
-        </div>
+        <template v-else>
+          <span class="text-foreground">Удалить навсегда?</span>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 font-medium text-[var(--primary)] underline decoration-[var(--primary)]/40 underline-offset-4 hover:decoration-[var(--primary)] disabled:opacity-60"
+            :disabled="isDeleting"
+            @click="confirmDelete"
+          >
+            <Spinner v-if="isDeleting" />
+            Да, удалить
+          </button>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
+            :disabled="isDeleting"
+            @click="cancelDelete"
+          >
+            <X class="size-3.5" />
+            Отмена
+          </button>
+        </template>
       </footer>
     </template>
 

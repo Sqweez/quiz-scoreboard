@@ -76,7 +76,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="-mx-4 overflow-x-auto px-4 lg:mx-0 lg:px-0">
+  <div class="overflow-x-auto">
     <table class="w-full border-collapse text-foreground">
       <colgroup>
         <col class="w-10">
@@ -91,20 +91,20 @@ onBeforeUnmount(() => {
 
       <thead>
         <tr class="border-b border-[var(--rule-strong)] text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-          <th scope="col" class="py-3 pr-2 text-left font-medium">
+          <th scope="col" class="py-3 pl-3 pr-2 text-left font-medium sm:pl-4">
             №
           </th>
-          <th scope="col" class="py-3 pr-2 text-left font-medium">
+          <th scope="col" class="py-3 pr-3 text-left font-medium">
             Команда
           </th>
-          <th scope="col" class="py-3 pl-2 text-right font-medium">
+          <th scope="col" class="border-l border-[var(--rule)] py-3 pl-3 pr-2 text-right font-medium">
             Σ
           </th>
           <th
             v-for="(round, roundIndex) in quizStore.currentGame?.rounds"
             :key="round.id"
             scope="col"
-            class="py-3 pl-2 text-right font-medium"
+            class="py-3 pl-2 pr-2 text-right font-medium last:pr-3 sm:last:pr-4"
             :title="round.title"
           >
             <div class="font-display text-base font-medium tracking-normal text-foreground normal-case">
@@ -124,34 +124,41 @@ onBeforeUnmount(() => {
         <tr
           v-for="(team, index) in visibleTeams"
           :key="team.id"
-          class="border-b border-[var(--rule)] transition-colors hover:bg-secondary/40"
+          class="border-b border-[var(--rule)] transition-colors hover:bg-secondary/60"
+          :class="{
+            'bg-secondary/35': index % 2 === 1
+          }"
         >
-          <td class="py-2.5 pr-2 align-middle">
-            <span class="flex items-center gap-1.5 font-display text-lg font-medium tabular-nums">
+          <td class="py-3.5 pl-3 pr-2 align-middle sm:pl-4">
+            <span class="flex items-center gap-1.5 font-display text-lg tabular-nums">
               <span
                 v-if="index === 0"
                 aria-hidden="true"
                 class="inline-block size-1.5 rounded-full bg-[var(--leader)]"
               />
-              <span :class="index === 0 ? 'text-foreground' : 'text-muted-foreground'">
+              <span
+                :class="index === 0
+                  ? 'font-semibold text-foreground'
+                  : 'font-medium text-foreground/70'"
+              >
                 {{ index + 1 }}
               </span>
             </span>
           </td>
 
-          <td class="py-2.5 pr-2 align-middle">
+          <td class="py-3.5 pr-3 align-middle">
             <span
-              class="font-display text-lg leading-tight"
-              :class="index === 0 ? 'font-semibold text-foreground' : 'font-normal text-foreground'"
+              class="font-display text-lg leading-tight text-foreground"
+              :class="index === 0 ? 'font-semibold' : 'font-medium'"
             >
               {{ team.name }}
             </span>
           </td>
 
-          <td class="py-2.5 pl-2 text-right align-middle">
+          <td class="border-l border-[var(--rule)] py-3.5 pl-3 pr-2 text-right align-middle">
             <span
-              class="font-display text-2xl tabular-nums"
-              :class="index === 0 ? 'font-semibold text-foreground' : 'font-medium text-foreground'"
+              class="font-display text-3xl tabular-nums text-foreground"
+              :class="index === 0 ? 'font-semibold' : 'font-medium'"
             >
               {{ quizStore.getTotalScore(team) }}
             </span>
@@ -160,10 +167,10 @@ onBeforeUnmount(() => {
           <td
             v-for="round in quizStore.currentGame?.rounds"
             :key="round.id"
-            class="py-2.5 pl-2 text-right align-middle"
+            class="py-3.5 pl-2 pr-2 text-right align-middle last:pr-3 sm:last:pr-4"
           >
             <input
-              class="ml-auto block h-9 w-full max-w-16 rounded-none border-0 border-b border-transparent bg-transparent px-1 text-right font-display text-lg tabular-nums text-foreground outline-none transition-colors placeholder:text-muted-foreground/50 hover:border-[var(--rule-strong)] focus:border-[var(--primary)] focus:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              class="ml-auto block h-10 w-full max-w-16 rounded-none border-0 border-b border-[var(--rule)] bg-transparent px-1 text-right font-display text-xl tabular-nums text-foreground/85 outline-none transition-colors placeholder:text-muted-foreground/40 hover:border-[var(--rule-strong)] hover:text-foreground focus:border-[var(--primary)] focus:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               type="number"
               inputmode="numeric"
               min="0"

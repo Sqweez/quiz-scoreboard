@@ -1,35 +1,47 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, CheckCircle2, ListChecks, Medal, Trophy, Users } from 'lucide-vue-next'
-import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
-import { Input } from '~/components/ui/input'
-import { Label } from '~/components/ui/label'
+import { ArrowLeft, Check, Copy, Pencil, X } from 'lucide-vue-next'
 import { Spinner } from '~/components/ui/spinner'
-import RoundsEditor from '~/components/RoundsEditor.vue'
 import ScoreTable from '~/components/ScoreTable.vue'
-import TeamsEditor from '~/components/TeamsEditor.vue'
+import { useResultsClipboard } from '~/composables/useResultsClipboard'
 import { useQuizStore } from '~/stores/quiz'
 
 const quizStore = useQuizStore()
+const route = useRoute()
+const titleDraft = ref('')
 const titleError = ref('')
 const isDeleting = ref(false)
-const route = useRoute()
+const isConfirmingDelete = ref(false)
+
+const { copyStatus, copyStatusText, copyResults } = useResultsClipboard()
 
 definePageMeta({
   middleware: 'auth'
 })
 
-const leader = computed(() => quizStore.sortedTeams[0] ?? null)
-const leaderTotal = computed(() => (leader.value ? quizStore.getTotalScore(leader.value) : 0))
 const teamsCount = computed(() => quizStore.currentGame?.teams.length ?? 0)
 const roundsCount = computed(() => quizStore.currentGame?.rounds.length ?? 0)
 const isFinished = computed(() => quizStore.currentGame?.status === 'finished')
+
+const metaLine = computed(() => {
+  const parts: string[] = []
+  parts.push(pluralize(teamsCount.value, 'команда', 'команды', 'команд'))
+  parts.push(pluralize(roundsCount.value, 'раунд', 'раунда', 'раундов'))
+  return parts.join(' · ')
+})
 
 watch(
   () => route.params.id,
   async (gameId) => {
     await quizStore.loadGame(String(gameId ?? ''))
+  },
+  { immediate: true }
+)
+
+watch(
+  () => quizStore.currentGame?.title,
+  (value) => {
+    titleDraft.value = value ?? ''
   },
   { immediate: true }
 )
@@ -58,32 +70,49 @@ function flushScoresWhenHidden(): void {
   }
 }
 
-function updateTitle(value: string | number | null | undefined): void {
-  const title = String(value ?? '')
+function commitTitle(): void {
+  const next = titleDraft.value.trim()
 
-  if (!title.trim()) {
+  if (!next) {
     titleError.value = 'Название игры не может быть пустым.'
+    titleDraft.value = quizStore.currentGame?.title ?? ''
     return
   }
 
-  quizStore.updateGameTitle(title)
   titleError.value = ''
+
+  if (next === quizStore.currentGame?.title) {
+    return
+  }
+
+  quizStore.updateGameTitle(next)
+}
+
+function handleTitleKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Enter' && event.currentTarget instanceof HTMLInputElement) {
+    event.currentTarget.blur()
+  }
+
+  if (event.key === 'Escape' && event.currentTarget instanceof HTMLInputElement) {
+    titleDraft.value = quizStore.currentGame?.title ?? ''
+    event.currentTarget.blur()
+  }
 }
 
 async function finishCurrentGame(): Promise<void> {
   await quizStore.finishGame()
 }
 
-async function deleteCurrentGame(): Promise<void> {
-  const gameId = quizStore.currentGame?.id
+function requestDelete(): void {
+  isConfirmingDelete.value = true
+}
 
-  if (!gameId || isDeleting.value) {
-    return
-  }
+function cancelDelete(): void {
+  isConfirmingDelete.value = false
+}
 
-  const confirmed = window.confirm('Удалить эту игру? Это действие нельзя отменить.')
-
-  if (!confirmed) {
+async function confirmDelete(): Promise<void> {
+  if (isDeleting.value) {
     return
   }
 
@@ -97,139 +126,187 @@ async function deleteCurrentGame(): Promise<void> {
     }
   } finally {
     isDeleting.value = false
+    isConfirmingDelete.value = false
   }
+}
+
+function shareResults(): void {
+  if (!quizStore.currentGame) {
+    return
+  }
+
+  copyResults(quizStore.sortedTeams, quizStore.currentGame.rounds)
+}
+
+function pluralize(count: number, one: string, few: string, many: string): string {
+  const mod10 = count % 10
+  const mod100 = count % 100
+
+  if (mod10 === 1 && mod100 !== 11) {
+    return `${count} ${one}`
+  }
+
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return `${count} ${few}`
+  }
+
+  return `${count} ${many}`
 }
 </script>
 
 <template>
-  <main class="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-6 lg:py-8">
+  <main class="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-10 px-4 py-8 lg:px-8 lg:py-12">
     <template v-if="quizStore.currentGame">
-      <header class="rounded-lg border bg-card/95 p-4 shadow-sm shadow-slate-200/70 lg:p-5">
-        <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div class="min-w-0 flex-1 space-y-4">
-            <div class="flex flex-wrap items-center gap-2">
-              <NuxtLink to="/">
-                <Button variant="ghost" size="sm" class="h-9 px-2">
-                  <ArrowLeft class="size-4" />
-                  К списку
-                </Button>
-              </NuxtLink>
-              <span
-                class="rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-[0.12em]"
-                :class="isFinished ? 'bg-emerald-50 text-emerald-700' : 'bg-secondary text-secondary-foreground'"
-              >
-                {{ quizStore.currentGame.statusLabel }}
-              </span>
-              <span v-if="isFinished" class="rounded-full border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
-                Только просмотр
-              </span>
-            </div>
+      <NuxtLink
+        to="/"
+        class="inline-flex items-center gap-1.5 self-start text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft class="size-3.5" />
+        Все игры
+      </NuxtLink>
 
-            <div class="max-w-2xl space-y-2">
-              <Label for="game-title" class="text-muted-foreground">Название игры</Label>
-              <Input
-                id="game-title"
-                :model-value="quizStore.currentGame.title"
-                class="h-13 border-0 bg-transparent px-0 text-3xl font-bold shadow-none focus-visible:ring-0"
-                :disabled="isFinished"
-                @update:model-value="updateTitle"
-              />
-              <p v-if="titleError" class="text-sm text-destructive">{{ titleError }}</p>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap gap-2">
-            <Button
-              v-if="!isFinished"
-              variant="outline"
-              class="shrink-0"
-              :disabled="quizStore.isSavingScores"
-              @click="finishCurrentGame"
-            >
-              <CheckCircle2 class="size-4" />
-              Завершить игру
-            </Button>
-            <Button
-              variant="destructive"
-              class="shrink-0"
-              :disabled="isDeleting || quizStore.isSavingScores"
-              @click="deleteCurrentGame"
-            >
-              <Spinner v-if="isDeleting" />
-              Удалить игру
-            </Button>
-          </div>
+      <header class="border-b border-[var(--rule-strong)] pb-6">
+        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <span>{{ isFinished ? 'Завершено' : 'Идёт игра' }}</span>
+          <span aria-hidden="true">·</span>
+          <span>{{ metaLine }}</span>
+          <span v-if="quizStore.scoreSyncText" aria-hidden="true">·</span>
+          <span
+            v-if="quizStore.scoreSyncText"
+            class="normal-case tracking-normal"
+            :class="{
+              'text-foreground': quizStore.scoreSyncTone === 'saved',
+              'text-[var(--primary)]': quizStore.scoreSyncTone === 'error',
+              'text-muted-foreground': quizStore.scoreSyncTone === 'saving'
+            }"
+          >
+            {{ quizStore.scoreSyncText }}
+          </span>
         </div>
+
+        <div class="mt-4 flex items-start justify-between gap-4">
+          <label class="flex-1 text-foreground">
+            <span class="sr-only">Название игры</span>
+            <input
+              v-model="titleDraft"
+              type="text"
+              class="editable font-display w-full text-4xl font-medium leading-tight tracking-tight lg:text-5xl"
+              :disabled="isFinished"
+              :aria-invalid="Boolean(titleError)"
+              @blur="commitTitle"
+              @keydown="handleTitleKeydown"
+            >
+          </label>
+
+          <NuxtLink
+            v-if="!isFinished"
+            :to="`/games/${quizStore.currentGame.id}/edit`"
+            class="mt-3 inline-flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Pencil class="size-3.5" />
+            Команды и раунды
+          </NuxtLink>
+        </div>
+
+        <p v-if="titleError" class="mt-2 text-sm text-[var(--primary)]">
+          {{ titleError }}
+        </p>
       </header>
 
-      <p v-if="quizStore.error" class="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+      <p
+        v-if="quizStore.error"
+        class="border-l-0 border-t border-[var(--primary)] bg-[var(--secondary)] px-3 py-2 text-sm text-foreground"
+      >
         {{ quizStore.error }}
       </p>
 
-      <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div class="rounded-lg border bg-card p-4 shadow-sm">
-          <div class="flex items-center justify-between gap-3">
-            <p class="text-sm font-medium text-muted-foreground">Лидер</p>
-            <Trophy class="size-4 text-amber-600" />
-          </div>
-          <div class="mt-3">
-            <p class="truncate text-2xl font-bold">{{ leader?.name ?? 'Нет команд' }}</p>
-            <p class="text-sm text-muted-foreground">{{ leaderTotal }} баллов</p>
-          </div>
-        </div>
-
-        <div class="rounded-lg border bg-card p-4 shadow-sm">
-          <div class="flex items-center justify-between gap-3">
-            <p class="text-sm font-medium text-muted-foreground">Команды</p>
-            <Users class="size-4 text-primary" />
-          </div>
-          <p class="mt-3 text-2xl font-bold">{{ teamsCount }}</p>
-          <p class="text-sm text-muted-foreground">участников в таблице</p>
-        </div>
-
-        <div class="rounded-lg border bg-card p-4 shadow-sm">
-          <div class="flex items-center justify-between gap-3">
-            <p class="text-sm font-medium text-muted-foreground">Раунды</p>
-            <ListChecks class="size-4 text-emerald-600" />
-          </div>
-          <p class="mt-3 text-2xl font-bold">{{ roundsCount }}</p>
-          <p class="text-sm text-muted-foreground">этапов подсчета</p>
-        </div>
-
-        <div class="rounded-lg border bg-card p-4 shadow-sm">
-          <div class="flex items-center justify-between gap-3">
-            <p class="text-sm font-medium text-muted-foreground">Первое место</p>
-            <Medal class="size-4 text-slate-500" />
-          </div>
-          <p class="mt-3 truncate text-2xl font-bold">{{ leader?.name ?? '...' }}</p>
-          <p class="text-sm text-muted-foreground">по текущему тай-брейку</p>
-        </div>
-      </section>
-
       <ScoreTable :read-only="isFinished" />
 
-      <section class="grid gap-6 lg:grid-cols-2">
-        <TeamsEditor :read-only="isFinished" />
-        <RoundsEditor :read-only="isFinished" />
-      </section>
+      <footer class="flex flex-col gap-6 border-t border-[var(--rule)] pt-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 font-medium text-foreground transition-colors hover:text-[var(--primary)]"
+              @click="shareResults"
+            >
+              <Copy class="size-4" />
+              Поделиться итогами
+            </button>
+
+            <span
+              v-if="copyStatusText"
+              class="text-muted-foreground"
+              :class="copyStatus === 'error' ? 'text-[var(--primary)]' : ''"
+            >
+              {{ copyStatusText }}
+            </span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-4 text-sm">
+            <button
+              v-if="!isFinished"
+              type="button"
+              class="inline-flex items-center gap-2 font-medium text-foreground transition-colors hover:text-[var(--primary)] disabled:opacity-60"
+              :disabled="quizStore.isSavingScores"
+              @click="finishCurrentGame"
+            >
+              <Check class="size-4" />
+              Завершить игру
+            </button>
+
+            <template v-if="!isConfirmingDelete">
+              <button
+                type="button"
+                class="text-sm text-muted-foreground underline decoration-[var(--rule)] underline-offset-4 transition-colors hover:text-[var(--primary)] hover:decoration-[var(--primary)]"
+                @click="requestDelete"
+              >
+                Удалить игру
+              </button>
+            </template>
+
+            <template v-else>
+              <span class="text-foreground">Удалить навсегда?</span>
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 font-medium text-[var(--primary)] underline decoration-[var(--primary)]/40 underline-offset-4 hover:decoration-[var(--primary)] disabled:opacity-60"
+                :disabled="isDeleting"
+                @click="confirmDelete"
+              >
+                <Spinner v-if="isDeleting" />
+                Да, удалить
+              </button>
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
+                :disabled="isDeleting"
+                @click="cancelDelete"
+              >
+                <X class="size-3.5" />
+                Отмена
+              </button>
+            </template>
+          </div>
+        </div>
+      </footer>
     </template>
 
-    <Card v-else>
-      <CardHeader>
-        <div class="mb-2 flex items-center gap-2 text-muted-foreground">
-          <Spinner />
-          <span class="text-sm">{{ quizStore.isLoading ? 'Загружаем игру' : 'Игра не найдена' }}</span>
-        </div>
-        <CardTitle>{{ quizStore.isLoading ? 'Загружаем игру' : 'Игра не найдена' }}</CardTitle>
-        <CardDescription>
-          {{ quizStore.isLoading ? 'Проверяем сохраненные данные.' : 'Вернитесь к списку игр.' }}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <NuxtLink to="/">
-          <Button>К списку</Button>
-        </NuxtLink>
-      </CardContent>
-    </Card>
+    <section v-else class="flex flex-col items-start gap-4 py-16">
+      <p class="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+        {{ quizStore.isLoading ? 'Загрузка' : 'Не найдено' }}
+      </p>
+      <h1 class="font-display text-3xl font-medium">
+        {{ quizStore.isLoading ? 'Загружаем игру' : 'Игра не найдена' }}
+      </h1>
+      <p class="text-sm text-muted-foreground">
+        {{ quizStore.isLoading ? 'Проверяем сохранённые данные.' : 'Возможно, ссылка устарела.' }}
+      </p>
+      <NuxtLink
+        to="/"
+        class="text-sm font-medium text-foreground underline decoration-[var(--rule-strong)] underline-offset-4 transition-colors hover:text-[var(--primary)] hover:decoration-[var(--primary)]"
+      >
+        Вернуться к списку
+      </NuxtLink>
+    </section>
   </main>
 </template>

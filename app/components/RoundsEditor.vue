@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Plus, Trash2 } from 'lucide-vue-next'
-import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
+import { Plus, X } from 'lucide-vue-next'
 import { Input } from '~/components/ui/input'
-import { Label } from '~/components/ui/label'
+import { Button } from '~/components/ui/button'
 import { useQuizStore } from '../stores/quiz'
 
 const props = defineProps<{
@@ -14,6 +12,7 @@ const props = defineProps<{
 const quizStore = useQuizStore()
 const newRoundTitle = ref('')
 const error = ref('')
+const confirmingId = ref<string | null>(null)
 
 function addRound(): void {
   if (!newRoundTitle.value.trim()) {
@@ -36,82 +35,126 @@ function updateTitle(roundId: string, value: string): void {
   error.value = ''
 }
 
-function updateOptionalNumber(roundId: string, field: 'maxScore' | 'questionsCount', value: string): void {
+function updateOptionalNumber(
+  roundId: string,
+  field: 'maxScore' | 'questionsCount',
+  value: string
+): void {
   quizStore.updateRoundSettings(roundId, {
     [field]: value === '' ? null : Math.max(0, Number(value))
   })
 }
+
+function requestDelete(roundId: string): void {
+  confirmingId.value = roundId
+}
+
+function cancelDelete(): void {
+  confirmingId.value = null
+}
+
+function confirmDelete(roundId: string): void {
+  quizStore.deleteRound(roundId)
+  confirmingId.value = null
+}
 </script>
 
 <template>
-  <Card class="overflow-hidden">
-    <CardHeader class="border-b bg-secondary/35">
-      <div class="flex items-center justify-between gap-3">
-        <CardTitle>Раунды</CardTitle>
-        <span class="rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
-          {{ quizStore.currentGame?.rounds.length ?? 0 }}
-        </span>
-      </div>
-    </CardHeader>
-    <CardContent class="space-y-4">
-      <div v-if="!props.readOnly" class="flex gap-2 rounded-md border bg-background p-2">
-        <Input v-model="newRoundTitle" placeholder="Новый раунд" @keyup.enter="addRound" />
-        <Button @click="addRound">
-          <Plus class="size-4" />
-          Добавить
-        </Button>
-      </div>
+  <section class="space-y-4">
+    <header class="flex items-baseline justify-between gap-3 border-b border-[var(--rule-strong)] pb-2">
+      <h2 class="font-display text-xl font-medium">Раунды</h2>
+      <span class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+        {{ quizStore.currentGame?.rounds.length ?? 0 }}
+      </span>
+    </header>
 
-      <div class="space-y-3">
-        <div
-          v-for="round in quizStore.currentGame?.rounds"
-          :key="round.id"
-          class="grid gap-3 rounded-md border bg-background p-3 lg:grid-cols-[minmax(0,1fr)_120px_140px_auto]"
+    <div v-if="!props.readOnly" class="flex gap-2">
+      <Input
+        v-model="newRoundTitle"
+        placeholder="Название нового раунда"
+        @keyup.enter="addRound"
+      />
+      <Button type="button" variant="outline" @click="addRound">
+        <Plus class="size-4" />
+        Добавить
+      </Button>
+    </div>
+
+    <ul class="divide-y divide-[var(--rule)]">
+      <li
+        v-for="(round, index) in quizStore.currentGame?.rounds"
+        :key="round.id"
+        class="grid gap-3 py-4 md:grid-cols-[2.5rem_minmax(0,1fr)_5rem_5rem_auto] md:items-center"
+      >
+        <span class="font-display text-base tabular-nums text-muted-foreground">
+          {{ index + 1 }}
+        </span>
+
+        <input
+          :value="round.title"
+          aria-label="Название раунда"
+          :disabled="props.readOnly"
+          class="editable font-display text-lg leading-tight"
+          @blur="updateTitle(round.id, ($event.target as HTMLInputElement).value)"
+          @keydown.enter="($event.target as HTMLInputElement).blur()"
         >
-          <div class="space-y-1.5">
-            <Label>Название</Label>
-            <Input
-              :model-value="round.title"
-              :disabled="props.readOnly"
-              @update:model-value="updateTitle(round.id, String($event))"
-            />
-          </div>
-          <div class="space-y-1.5">
-            <Label>Макс. балл</Label>
-            <Input
-              :model-value="round.maxScore ?? ''"
-              type="number"
-              min="0"
-              :disabled="props.readOnly"
-              @update:model-value="updateOptionalNumber(round.id, 'maxScore', String($event))"
-            />
-          </div>
-          <div class="space-y-1.5">
-            <Label>Вопросы</Label>
-            <Input
-              :model-value="round.questionsCount ?? ''"
-              type="number"
-              min="0"
-              :disabled="props.readOnly"
-              @update:model-value="updateOptionalNumber(round.id, 'questionsCount', String($event))"
-            />
-          </div>
-          <div class="flex items-end">
-            <Button
-              v-if="!props.readOnly"
-              variant="ghost"
-              size="icon"
+
+        <label class="flex items-baseline gap-2 text-sm text-muted-foreground">
+          <span class="text-[11px] uppercase tracking-[0.14em]">Макс</span>
+          <input
+            :value="round.maxScore ?? ''"
+            type="number"
+            min="0"
+            :disabled="props.readOnly"
+            class="editable w-12 text-right font-display tabular-nums"
+            @blur="updateOptionalNumber(round.id, 'maxScore', ($event.target as HTMLInputElement).value)"
+          >
+        </label>
+
+        <label class="flex items-baseline gap-2 text-sm text-muted-foreground">
+          <span class="text-[11px] uppercase tracking-[0.14em]">Вопросы</span>
+          <input
+            :value="round.questionsCount ?? ''"
+            type="number"
+            min="0"
+            :disabled="props.readOnly"
+            class="editable w-12 text-right font-display tabular-nums"
+            @blur="updateOptionalNumber(round.id, 'questionsCount', ($event.target as HTMLInputElement).value)"
+          >
+        </label>
+
+        <div v-if="!props.readOnly" class="flex items-center justify-end gap-3 text-sm">
+          <template v-if="confirmingId !== round.id">
+            <button
+              type="button"
+              class="text-muted-foreground transition-colors hover:text-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="(quizStore.currentGame?.rounds.length ?? 0) <= 1"
               aria-label="Удалить раунд"
-              @click="quizStore.deleteRound(round.id)"
+              @click="requestDelete(round.id)"
             >
-              <Trash2 class="size-4" />
-            </Button>
-          </div>
+              Удалить
+            </button>
+          </template>
+          <template v-else>
+            <button
+              type="button"
+              class="font-medium text-[var(--primary)] underline decoration-[var(--primary)]/40 underline-offset-4 hover:decoration-[var(--primary)]"
+              @click="confirmDelete(round.id)"
+            >
+              Подтвердить
+            </button>
+            <button
+              type="button"
+              class="inline-flex items-center text-muted-foreground hover:text-foreground"
+              @click="cancelDelete"
+            >
+              <X class="size-3.5" />
+            </button>
+          </template>
         </div>
-      </div>
+      </li>
+    </ul>
 
-      <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
-    </CardContent>
-  </Card>
+    <p v-if="error" class="text-sm text-[var(--primary)]">{{ error }}</p>
+  </section>
 </template>

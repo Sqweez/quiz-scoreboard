@@ -1,20 +1,17 @@
 <script setup lang="ts">
 import { onBeforeUnmount } from 'vue'
-import { Copy, Trophy } from 'lucide-vue-next'
-import { Button } from '~/components/ui/button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/ui/table'
 import { useQuizStore } from '../stores/quiz'
 import type { Round, Team } from '#shared/quiz'
 import { usePinnedTeamOrder } from '../composables/usePinnedTeamOrder'
-import { useResultsClipboard } from '../composables/useResultsClipboard'
 
 const props = defineProps<{
   readOnly?: boolean
 }>()
 
 const quizStore = useQuizStore()
-const { visibleTeams, freezeCurrentOrder, releaseCurrentOrder } = usePinnedTeamOrder(() => quizStore.sortedTeams)
-const { copyStatus, copyStatusText, copyResults } = useResultsClipboard()
+const { visibleTeams, freezeCurrentOrder, releaseCurrentOrder } = usePinnedTeamOrder(
+  () => quizStore.sortedTeams
+)
 let scoreBlurTimer: ReturnType<typeof setTimeout> | null = null
 
 function updateScore(team: Team, round: Round, event: Event): void {
@@ -26,23 +23,17 @@ function scoreValue(team: Team, roundId: string): number {
   return team.scores[roundId] ?? 0
 }
 
-function preventNativeNumberStep(event: KeyboardEvent): void {
-  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-    event.preventDefault()
-  }
-}
-
-function preventWheelStep(event: WheelEvent): void {
-  event.currentTarget instanceof HTMLInputElement && event.currentTarget.blur()
-}
-
-function handleScoreFocus(): void {
+function handleScoreFocus(event: FocusEvent): void {
   if (scoreBlurTimer) {
     clearTimeout(scoreBlurTimer)
     scoreBlurTimer = null
   }
 
   freezeCurrentOrder()
+
+  if (event.target instanceof HTMLInputElement) {
+    event.target.select()
+  }
 }
 
 function handleScoreBlur(): void {
@@ -59,19 +50,19 @@ function handleScoreBlur(): void {
 }
 
 function handleScoreKeydown(event: KeyboardEvent): void {
-  preventNativeNumberStep(event)
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    event.preventDefault()
+  }
 
   if (event.key === 'Enter' && event.currentTarget instanceof HTMLInputElement) {
     event.currentTarget.blur()
   }
 }
 
-function copyCurrentResults(): void {
-  if (!quizStore.currentGame) {
-    return
+function preventWheelStep(event: WheelEvent): void {
+  if (event.currentTarget instanceof HTMLInputElement) {
+    event.currentTarget.blur()
   }
-
-  copyResults(quizStore.sortedTeams, quizStore.currentGame.rounds)
 }
 
 onBeforeUnmount(() => {
@@ -85,119 +76,120 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="overflow-hidden rounded-lg border bg-card shadow-sm shadow-slate-200/70">
-    <div class="flex flex-col gap-3 border-b bg-secondary/35 p-4 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        <h2 class="text-lg font-semibold">Таблица результатов</h2>
-        <p class="text-sm text-muted-foreground">
-          Баллы, итоги и места пересчитываются сразу после ввода.
-        </p>
-      </div>
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <p
-          v-if="quizStore.scoreSyncText"
-          class="text-sm"
-          :class="{
-            'text-emerald-700': quizStore.scoreSyncTone === 'saved',
-            'text-destructive': quizStore.scoreSyncTone === 'error',
-            'text-muted-foreground': quizStore.scoreSyncTone === 'saving'
-          }"
+  <div class="-mx-4 overflow-x-auto px-4 lg:mx-0 lg:px-0">
+    <table class="w-full border-collapse text-foreground">
+      <colgroup>
+        <col class="w-10">
+        <col class="w-auto">
+        <col class="w-20">
+        <col
+          v-for="round in quizStore.currentGame?.rounds"
+          :key="round.id"
+          class="w-16"
         >
-          {{ quizStore.scoreSyncText }}
-        </p>
-        <p
-          v-if="copyStatusText"
-          class="text-sm"
-          :class="copyStatus === 'success' ? 'text-emerald-700' : 'text-destructive'"
-        >
-          {{ copyStatusText }}
-        </p>
-        <Button variant="outline" size="sm" @click="copyCurrentResults">
-          <Copy class="size-4" />
-          Скопировать результаты
-        </Button>
-        <div class="rounded-full border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
-          Тай-брейк: от последнего раунда к первому
-        </div>
-      </div>
-    </div>
+      </colgroup>
 
-    <Table>
-      <TableHeader class="sticky top-0 z-10 bg-card">
-        <TableRow class="hover:bg-transparent">
-          <TableHead class="sticky left-0 z-30 w-20 min-w-20 bg-card shadow-[1px_0_0_var(--border)]">
-            Место
-          </TableHead>
-          <TableHead class="sticky left-20 z-30 w-56 min-w-56 bg-card shadow-[1px_0_0_var(--border)]">
+      <thead>
+        <tr class="border-b border-[var(--rule-strong)] text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+          <th scope="col" class="py-3 pr-2 text-left font-medium">
+            №
+          </th>
+          <th scope="col" class="py-3 pr-2 text-left font-medium">
             Команда
-          </TableHead>
-          <TableHead class="sticky left-76 z-30 w-28 min-w-28 bg-secondary text-right shadow-[1px_0_0_var(--border)]">
-            Итого
-          </TableHead>
-          <TableHead
-            v-for="round in quizStore.currentGame?.rounds"
+          </th>
+          <th scope="col" class="py-3 pl-2 text-right font-medium">
+            Σ
+          </th>
+          <th
+            v-for="(round, roundIndex) in quizStore.currentGame?.rounds"
             :key="round.id"
-            class="min-w-36 border-l text-right"
+            scope="col"
+            class="py-3 pl-2 text-right font-medium"
+            :title="round.title"
           >
-            <div>{{ round.title }}</div>
-            <div v-if="round.maxScore !== null && round.maxScore !== undefined" class="text-xs font-normal">
+            <div class="font-display text-base font-medium tracking-normal text-foreground normal-case">
+              {{ roundIndex + 1 }}
+            </div>
+            <div
+              v-if="round.maxScore !== null && round.maxScore !== undefined"
+              class="mt-0.5 text-[10px] font-normal text-muted-foreground"
+            >
               макс. {{ round.maxScore }}
             </div>
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        <TableRow
+          </th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr
           v-for="(team, index) in visibleTeams"
           :key="team.id"
-          :class="index === 0 ? 'bg-amber-50/70 hover:bg-amber-50' : ''"
+          class="border-b border-[var(--rule)] transition-colors hover:bg-secondary/40"
         >
-          <TableCell
-            class="sticky left-0 z-20 w-20 min-w-20 font-semibold shadow-[1px_0_0_var(--border)]"
-            :class="index === 0 ? 'bg-amber-50' : 'bg-card'"
-          >
-            <span
-              class="inline-flex size-8 items-center justify-center rounded-full text-sm"
-              :class="index === 0 ? 'bg-amber-500 text-white' : 'bg-muted text-muted-foreground'"
-            >
-              {{ index + 1 }}
+          <td class="py-2.5 pr-2 align-middle">
+            <span class="flex items-center gap-1.5 font-display text-lg font-medium tabular-nums">
+              <span
+                v-if="index === 0"
+                aria-hidden="true"
+                class="inline-block size-1.5 rounded-full bg-[var(--leader)]"
+              />
+              <span :class="index === 0 ? 'text-foreground' : 'text-muted-foreground'">
+                {{ index + 1 }}
+              </span>
             </span>
-          </TableCell>
-          <TableCell
-            class="sticky left-20 z-20 w-56 min-w-56 font-medium shadow-[1px_0_0_var(--border)]"
-            :class="index === 0 ? 'bg-amber-50' : 'bg-card'"
-          >
-            <div class="flex items-center gap-2">
-              <Trophy v-if="index === 0" class="size-4 shrink-0 text-amber-600" />
-              <span class="truncate">{{ team.name }}</span>
-            </div>
-          </TableCell>
-          <TableCell class="sticky left-76 z-20 w-28 min-w-28 bg-secondary text-right text-base font-bold shadow-[1px_0_0_var(--border)]">
-            <span class="rounded-md bg-background px-2.5 py-1 shadow-sm">
+          </td>
+
+          <td class="py-2.5 pr-2 align-middle">
+            <span
+              class="font-display text-lg leading-tight"
+              :class="index === 0 ? 'font-semibold text-foreground' : 'font-normal text-foreground'"
+            >
+              {{ team.name }}
+            </span>
+          </td>
+
+          <td class="py-2.5 pl-2 text-right align-middle">
+            <span
+              class="font-display text-2xl tabular-nums"
+              :class="index === 0 ? 'font-semibold text-foreground' : 'font-medium text-foreground'"
+            >
               {{ quizStore.getTotalScore(team) }}
             </span>
-          </TableCell>
-          <TableCell
+          </td>
+
+          <td
             v-for="round in quizStore.currentGame?.rounds"
             :key="round.id"
-            class="border-l text-right"
+            class="py-2.5 pl-2 text-right align-middle"
           >
             <input
-              class="h-9 w-24 rounded-md border border-input bg-background px-2 text-right text-sm font-medium shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              class="ml-auto block h-9 w-full max-w-16 rounded-none border-0 border-b border-transparent bg-transparent px-1 text-right font-display text-lg tabular-nums text-foreground outline-none transition-colors placeholder:text-muted-foreground/50 hover:border-[var(--rule-strong)] focus:border-[var(--primary)] focus:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               type="number"
+              inputmode="numeric"
               min="0"
               :max="round.maxScore ?? undefined"
               :value="scoreValue(team, round.id)"
               :disabled="props.readOnly"
+              :aria-label="`Баллы команды ${team.name} в раунде ${round.title}`"
+              placeholder="0"
               @focus="handleScoreFocus"
               @input="updateScore(team, round, $event)"
               @blur="handleScoreBlur"
               @keydown="handleScoreKeydown"
               @wheel="preventWheelStep"
             >
-          </TableCell>
-        </TableRow>
-      </TableBody>
-    </Table>
+          </td>
+        </tr>
+
+        <tr v-if="visibleTeams.length === 0">
+          <td
+            :colspan="3 + (quizStore.currentGame?.rounds.length ?? 0)"
+            class="py-12 text-center text-sm text-muted-foreground"
+          >
+            Добавьте команды и раунды, чтобы начать.
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </template>

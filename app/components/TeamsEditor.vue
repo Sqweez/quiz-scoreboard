@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Plus, Trash2 } from 'lucide-vue-next'
-import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
+import { Plus, X } from 'lucide-vue-next'
 import { Input } from '~/components/ui/input'
+import { Button } from '~/components/ui/button'
 import { useQuizStore } from '../stores/quiz'
 
 const props = defineProps<{
@@ -13,6 +12,7 @@ const props = defineProps<{
 const quizStore = useQuizStore()
 const newTeamName = ref('')
 const error = ref('')
+const confirmingId = ref<string | null>(null)
 
 function addTeam(): void {
   if (!newTeamName.value.trim()) {
@@ -34,56 +34,93 @@ function renameTeam(teamId: string, value: string): void {
   quizStore.renameTeam(teamId, value)
   error.value = ''
 }
+
+function requestDelete(teamId: string): void {
+  confirmingId.value = teamId
+}
+
+function cancelDelete(): void {
+  confirmingId.value = null
+}
+
+function confirmDelete(teamId: string): void {
+  quizStore.deleteTeam(teamId)
+  confirmingId.value = null
+}
 </script>
 
 <template>
-  <Card class="overflow-hidden">
-    <CardHeader class="border-b bg-secondary/35">
-      <div class="flex items-center justify-between gap-3">
-        <CardTitle>Команды</CardTitle>
-        <span class="rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
-          {{ quizStore.currentGame?.teams.length ?? 0 }}
+  <section class="space-y-4">
+    <header class="flex items-baseline justify-between gap-3 border-b border-[var(--rule-strong)] pb-2">
+      <h2 class="font-display text-xl font-medium">Команды</h2>
+      <span class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+        {{ quizStore.currentGame?.teams.length ?? 0 }}
+      </span>
+    </header>
+
+    <div v-if="!props.readOnly" class="flex gap-2">
+      <Input
+        v-model="newTeamName"
+        placeholder="Название новой команды"
+        @keyup.enter="addTeam"
+      />
+      <Button type="button" variant="outline" @click="addTeam">
+        <Plus class="size-4" />
+        Добавить
+      </Button>
+    </div>
+
+    <ul class="divide-y divide-[var(--rule)]">
+      <li
+        v-for="(team, index) in quizStore.currentGame?.teams"
+        :key="team.id"
+        class="flex items-center gap-3 py-3"
+      >
+        <span class="w-6 font-display text-base tabular-nums text-muted-foreground">
+          {{ index + 1 }}
         </span>
-      </div>
-    </CardHeader>
-    <CardContent class="space-y-4">
-      <div v-if="!props.readOnly" class="flex gap-2 rounded-md border bg-background p-2">
-        <Input v-model="newTeamName" placeholder="Новая команда" @keyup.enter="addTeam" />
-        <Button @click="addTeam">
-          <Plus class="size-4" />
-          Добавить
-        </Button>
-      </div>
 
-      <div class="space-y-2">
-        <div
-          v-for="(team, index) in quizStore.currentGame?.teams"
-          :key="team.id"
-          class="flex items-center gap-2 rounded-md border bg-background p-2"
+        <input
+          :value="team.name"
+          aria-label="Название команды"
+          :disabled="props.readOnly"
+          class="editable flex-1 font-display text-lg leading-tight"
+          @blur="renameTeam(team.id, ($event.target as HTMLInputElement).value)"
+          @keydown.enter="($event.target as HTMLInputElement).blur()"
         >
-          <span class="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-semibold text-muted-foreground">
-            {{ index + 1 }}
-          </span>
-          <Input
-            :model-value="team.name"
-            aria-label="Название команды"
-            :disabled="props.readOnly"
-            @update:model-value="renameTeam(team.id, String($event))"
-          />
-          <Button
-            v-if="!props.readOnly"
-            variant="ghost"
-            size="icon"
-            :disabled="(quizStore.currentGame?.teams.length ?? 0) <= 1"
-            aria-label="Удалить команду"
-            @click="quizStore.deleteTeam(team.id)"
-          >
-            <Trash2 class="size-4" />
-          </Button>
-        </div>
-      </div>
 
-      <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
-    </CardContent>
-  </Card>
+        <template v-if="!props.readOnly">
+          <template v-if="confirmingId !== team.id">
+            <button
+              type="button"
+              class="text-sm text-muted-foreground transition-colors hover:text-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="(quizStore.currentGame?.teams.length ?? 0) <= 1"
+              aria-label="Удалить команду"
+              @click="requestDelete(team.id)"
+            >
+              Удалить
+            </button>
+          </template>
+          <template v-else>
+            <button
+              type="button"
+              class="text-sm font-medium text-[var(--primary)] underline decoration-[var(--primary)]/40 underline-offset-4 hover:decoration-[var(--primary)]"
+              @click="confirmDelete(team.id)"
+            >
+              Подтвердить
+            </button>
+            <button
+              type="button"
+              class="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+              @click="cancelDelete"
+            >
+              <X class="size-3.5" />
+            </button>
+          </template>
+        </template>
+      </li>
+    </ul>
+
+    <p v-if="error" class="text-sm text-[var(--primary)]">{{ error }}</p>
+  </section>
 </template>

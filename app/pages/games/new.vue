@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ArrowLeft } from 'lucide-vue-next'
-import { Button } from '~/components/ui/button'
 import GameSetupForm from '~/components/GameSetupForm.vue'
 
 definePageMeta({
@@ -9,21 +8,25 @@ definePageMeta({
 </script>
 
 <template>
-  <main class="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-4 py-6 lg:py-8">
-    <header class="flex items-center justify-between gap-3">
-      <div class="space-y-2">
-        <p class="text-sm font-medium text-primary">Таблица квиза</p>
-        <h1 class="text-3xl font-bold tracking-normal">Создание игры</h1>
-        <p class="max-w-2xl text-sm text-muted-foreground">
-          Настройте команды и раунды, а затем откройте игру по ее адресу.
-        </p>
-      </div>
-      <NuxtLink to="/">
-        <Button variant="outline">
-          <ArrowLeft class="size-4" />
-          К списку
-        </Button>
-      </NuxtLink>
+  <main class="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-10 px-4 py-8 lg:px-8 lg:py-12">
+    <NuxtLink
+      to="/"
+      class="inline-flex items-center gap-1.5 self-start text-sm text-muted-foreground transition-colors hover:text-foreground"
+    >
+      <ArrowLeft class="size-3.5" />
+      Все игры
+    </NuxtLink>
+
+    <header class="border-b border-[var(--rule-strong)] pb-6">
+      <p class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+        Новая игра
+      </p>
+      <h1 class="mt-3 font-display text-4xl font-medium leading-tight lg:text-5xl">
+        Подготовка к подсчёту
+      </h1>
+      <p class="mt-3 max-w-xl text-sm text-muted-foreground">
+        Заведите команды и раунды. Дальше откроется таблица и можно начинать вносить баллы.
+      </p>
     </header>
 
     <GameSetupForm />

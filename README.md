@@ -1,75 +1,65 @@
-# Nuxt Minimal Starter
+# Таблица квиза
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Laravel + Inertia + Vue монолит для ведения игр, команд, раундов и баллов.
+PostgreSQL хранит пользователей, игры и сессии. Supabase нужен только как
+источник одноразового переноса старых данных.
 
-## Setup
+## Запуск на VPS
 
-Make sure to install dependencies:
+Нужны Docker Engine, Compose и HTTPS reverse proxy на VPS.
 
-```bash
-# npm
-npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
+```sh
+cp .env.example .env
+# Заполнить APP_URL, DB_PASSWORD и TRUSTED_PROXIES в приватном .env.
+docker compose build
+docker compose run --rm --no-deps app php artisan key:generate --show
+# Сохранить полученный APP_KEY в .env один раз; не менять между выпусками.
+docker compose up -d postgres
+docker compose run --rm app php artisan migrate --force
+docker compose up -d
+curl --fail http://127.0.0.1:8087/api/health
 ```
 
-## Development Server
+Приложение слушает только loopback; внешний proxy направляет HTTPS-трафик
+на `127.0.0.1:8087`. PostgreSQL наружу не публикуется. Не открывайте запись
+пользователям до финального импорта и сверки.
 
-Start the development server on `http://localhost:3000`:
+- [Развёртывание, обновление и резервные копии](docs/deployment.md).
+- [Перенос пользователей и данных из Supabase](docs/data-migration.md).
+- [Согласованная спецификация](docs/superpowers/specs/2026-11-13-laravel-monolith-design.md).
 
-```bash
-# npm
+## Локальная разработка
+
+PHP 8.4 с `pdo_pgsql`, Composer, Node 24 и PostgreSQL. Для локального
+запуска в `.env` установить `APP_ENV=local`, `APP_URL=http://localhost:8000`,
+`DB_HOST=127.0.0.1`, параметры своей локальной БД и `SESSION_SECURE_COOKIE=false`.
+
+```sh
+composer install
+npm ci
+php artisan key:generate
+php artisan migrate
+php artisan serve
+# В другом терминале:
 npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
 ```
 
-## Production
+## Проверки
 
-Build the application for production:
+PHP feature-тесты используют две отдельные локальные PostgreSQL-базы:
+`quiz_test` и `quiz_source` на порту `55439`, пользователь/пароль `quiz`.
+Эти базы тесты очищают: никогда не направлять их на рабочие данные.
 
-```bash
-# npm
+```sh
+docker run -d --name quiz-laravel-tests -e POSTGRES_USER=quiz -e POSTGRES_PASSWORD=quiz -e POSTGRES_DB=quiz_test -p 127.0.0.1:55439:5432 postgres:17-alpine
+# После готовности PostgreSQL:
+docker exec quiz-laravel-tests createdb -U quiz quiz_source
+php artisan test
+npm test
+npm run typecheck
 npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
+docker compose config --quiet
 ```
 
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+Playwright не используется. Реальный production-перенос считается выполненным
+только после импорта и сверки целевой базы на VPS.

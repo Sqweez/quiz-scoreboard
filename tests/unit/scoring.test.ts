@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getTeamTotal, normalizeScoreInput, sortTeamsByScore } from '#shared/quiz'
-import { orderTeamsByPinnedIds } from '../../app/composables/usePinnedTeamOrder'
+import { orderTeamsByPinnedIds } from '../../resources/js/composables/usePinnedTeamOrder'
 import type { Round, Team } from '#shared/quiz'
 
 const rounds: Round[] = [
@@ -39,11 +39,13 @@ describe('sortTeamsByScore', () => {
   })
 
   it('normalizes score input as a safe number with fractional max score support', () => {
-    expect(normalizeScoreInput('', { id: 'round-1', title: 'Round 1' })).toBe(0)
-    expect(normalizeScoreInput('bad', { id: 'round-1', title: 'Round 1' })).toBe(0)
-    expect(normalizeScoreInput(-1, { id: 'round-1', title: 'Round 1' })).toBe(0)
-    expect(normalizeScoreInput('1.5', { id: 'round-1', title: 'Round 1' })).toBe(1.5)
-    expect(normalizeScoreInput(3, { id: 'round-1', title: 'Round 1', maxScore: 2.5 })).toBe(2.5)
+    expect(normalizeScoreInput('', {})).toBe(0)
+    expect(normalizeScoreInput('bad', {})).toBe(0)
+    expect(normalizeScoreInput(-1, {})).toBe(0)
+    expect(normalizeScoreInput('1.5', {})).toBe(1.5)
+    expect(normalizeScoreInput('1,5', {})).toBe(1.5)
+    expect(normalizeScoreInput('1,', {})).toBe(1)
+    expect(normalizeScoreInput(3, { maxScore: 2.5 })).toBe(2.5)
   })
 
   it('treats missing score values as zero and keeps stable order for identical scores', () => {

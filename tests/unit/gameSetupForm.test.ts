@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
-import { useGameSetupForm } from '../../app/composables/useGameSetupForm'
+import { useGameSetupForm } from '../../resources/js/composables/useGameSetupForm'
 
 describe('useGameSetupForm', () => {
+  it('accepts a comma decimal separator for a round maximum', async () => {
+    const createGame = vi.fn().mockResolvedValue(undefined)
+    const form = useGameSetupForm({ createGame, navigateToGame: vi.fn() })
+    form.rounds.value[0].maxScore = '2,5'
+    await form.createGame()
+    expect(createGame.mock.calls[0][0].rounds[0].maxScore).toBe(2.5)
+  })
   it('creates a game from valid draft values and navigates to the game page', async () => {
     const createGame = vi.fn().mockResolvedValue(undefined)
     const navigateToGame = vi.fn()

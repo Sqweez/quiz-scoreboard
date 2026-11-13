@@ -1,2 +1,0 @@
--- Legacy placeholder migration.
--- Kept to preserve Prisma migration history after the original incomplete file was removed.

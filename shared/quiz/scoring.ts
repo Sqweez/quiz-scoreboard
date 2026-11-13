@@ -37,7 +37,9 @@ export function normalizeScoreInput(
   value: number | string | null | undefined,
   round: Pick<Round, 'maxScore'>,
 ): number {
-  const score = value === '' || value === null || value === undefined ? 0 : Number(value)
+  const score = value === '' || value === null || value === undefined
+    ? 0
+    : Number(typeof value === 'string' ? value.replace(',', '.') : value)
   const safeScore = Number.isFinite(score) ? Math.max(0, score) : 0
 
   if (round.maxScore === null || round.maxScore === undefined) {

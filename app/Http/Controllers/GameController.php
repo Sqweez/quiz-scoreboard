@@ -94,6 +94,10 @@ class GameController extends Controller
             if (array_key_exists('ratingPackage', $input)) {
                 $game->rating_package = $input['ratingPackage'];
             }
+            // A newly linked game brings its question package as the rating package unless one is set.
+            if ($game->rating_package === null && $game->extra !== null) {
+                $game->rating_package = $game->extra['packageNumber'] ?? null;
+            }
         }, allowFinished: true));
     }
 

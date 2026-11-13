@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
@@ -22,6 +23,10 @@ return new class extends Migration {
             // Set once the results table has been queued for upload in the rating module.
             $table->timestamp('rating_uploaded_at')->nullable();
         });
+
+        // Games linked before this column existed get the question package of their Quiz Please game.
+        DB::table('games')->whereNull('rating_package')->whereNotNull('extra')
+            ->update(['rating_package' => DB::raw("extra->>'packageNumber'")]);
     }
 
     public function down(): void

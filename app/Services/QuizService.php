@@ -21,7 +21,8 @@ class QuizService
                 'extra' => $extra,
                 'rating_category_id' => $input['ratingCategoryId'] ?? null,
                 'rating_include_scores' => $input['ratingIncludeScores'] ?? true,
-                'rating_package' => $input['ratingPackage'] ?? null,
+                // The rating package defaults to the question package of the linked Quiz Please game.
+                'rating_package' => ($input['ratingPackage'] ?? null) ?: ($extra['packageNumber'] ?? null),
             ]);
             foreach ($input['rounds'] as $position => $round) {
                 $game->rounds()->create([

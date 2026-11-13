@@ -21,6 +21,7 @@ class QuizService
                 'extra' => $extra,
                 'rating_category_id' => $input['ratingCategoryId'] ?? null,
                 'rating_include_scores' => $input['ratingIncludeScores'] ?? true,
+                'rating_package' => $input['ratingPackage'] ?? null,
             ]);
             foreach ($input['rounds'] as $position => $round) {
                 $game->rounds()->create([

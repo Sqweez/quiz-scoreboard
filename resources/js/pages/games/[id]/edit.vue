@@ -18,9 +18,9 @@ const props = defineProps<{ gameId: string }>()
 const isFinished = computed(() => quizStore.currentGame?.status === 'finished')
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-type GameDetails = Partial<Pick<Game, 'title' | 'externalId' | 'ratingCategoryId' | 'ratingIncludeScores'>>
+type GameDetails = Partial<Pick<Game, 'title' | 'externalId' | 'ratingCategoryId' | 'ratingIncludeScores' | 'ratingPackage'>>
 
-const draft = reactive({ title: '', externalId: '', ratingCategoryId: null as number | null, ratingIncludeScores: true })
+const draft = reactive({ title: '', externalId: '', ratingCategoryId: null as number | null, ratingIncludeScores: true, ratingPackage: '' })
 const detailsError = ref('')
 const isSaving = ref(false)
 const { isLoginOpen, requireLogin, login, cancelLogin } = useQuizPleaseLogin()
@@ -36,6 +36,7 @@ function resetDraft(): void {
   draft.externalId = game.externalId ?? ''
   draft.ratingCategoryId = game.ratingCategoryId
   draft.ratingIncludeScores = game.ratingIncludeScores
+  draft.ratingPackage = game.ratingPackage ?? ''
   detailsError.value = ''
 }
 
@@ -63,6 +64,9 @@ const changes = computed<GameDetails>(() => {
   }
   if (draft.ratingIncludeScores !== game.ratingIncludeScores) {
     result.ratingIncludeScores = draft.ratingIncludeScores
+  }
+  if (draft.ratingPackage.trim() !== (game.ratingPackage ?? '')) {
+    result.ratingPackage = draft.ratingPackage.trim() || null
   }
 
   return result
@@ -196,7 +200,7 @@ watch(
             </p>
           </section>
 
-          <RatingSettings v-model:category-id="draft.ratingCategoryId" v-model:include-scores="draft.ratingIncludeScores" />
+          <RatingSettings v-model:category-id="draft.ratingCategoryId" v-model:include-scores="draft.ratingIncludeScores" v-model:package="draft.ratingPackage" />
 
           <div class="space-y-3">
             <p v-if="detailsError" class="text-sm text-primary">{{ detailsError }}</p>

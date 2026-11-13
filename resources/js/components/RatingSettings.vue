@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { useRatingCategories } from '~/composables/useRatingCategories'
+import { useRatingCategories, useRatingPackages } from '~/composables/useRatingCategories'
 
 defineProps<{
   disabled?: boolean
@@ -8,8 +8,11 @@ defineProps<{
 
 const categoryId = defineModel<number | null>('categoryId', { required: true })
 const includeScores = defineModel<boolean>('includeScores', { required: true })
+const ratingPackage = defineModel<string>('package', { required: true })
 
 const { categories, error, isLoading, load } = useRatingCategories()
+
+const { packages, load: loadPackages } = useRatingPackages()
 
 onMounted(load)
 
@@ -49,6 +52,27 @@ function selectCategory(event: Event): void {
         {{ error }}
         <button type="button" class="underline underline-offset-4" @click="load">Повторить</button>
       </p>
+    </div>
+
+    <div class="space-y-2">
+      <label for="rating-package" class="eyebrow-tight block text-muted-foreground">
+        Пакет
+      </label>
+      <input
+        id="rating-package"
+        v-model="ratingPackage"
+        type="text"
+        list="rating-packages"
+        autocomplete="off"
+        placeholder="Например, классика"
+        :disabled="disabled"
+        class="h-12 w-full border-0 border-b border-rule-strong bg-transparent text-base outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground disabled:opacity-50"
+        @focus="loadPackages"
+      >
+      <datalist id="rating-packages">
+        <option v-for="name in packages" :key="name" :value="name" />
+      </datalist>
+      <p class="text-xs text-muted-foreground">Нужен для загрузки в рейтинг. Подсказки — пакеты игр вашего города в рейтинге.</p>
     </div>
 
     <label class="flex min-h-12 items-center gap-3 text-base">

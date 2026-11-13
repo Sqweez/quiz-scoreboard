@@ -146,7 +146,7 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   // Throws so callers can react to Quiz Please errors such as a required login.
-  async function updateGameDetails(details: Partial<Pick<Game, 'title' | 'externalId' | 'ratingCategoryId' | 'ratingIncludeScores'>>): Promise<void> {
+  async function updateGameDetails(details: Partial<Pick<Game, 'title' | 'externalId' | 'ratingCategoryId' | 'ratingIncludeScores' | 'ratingPackage'>>): Promise<void> {
     if (!currentGame.value) {
       return
     }

@@ -20,6 +20,7 @@ const {
   externalIdError,
   ratingCategoryId,
   ratingIncludeScores,
+  ratingPackage,
   isLoginOpen,
   login,
   cancelLogin,
@@ -261,7 +262,7 @@ function handleTeamPaste(event: ClipboardEvent, id: string): void {
       </div>
     </section>
 
-    <RatingSettings v-model:category-id="ratingCategoryId" v-model:include-scores="ratingIncludeScores" />
+    <RatingSettings v-model:category-id="ratingCategoryId" v-model:include-scores="ratingIncludeScores" v-model:package="ratingPackage" />
 
     <QuizPleaseLoginDialog :open="isLoginOpen" :submit="login" @cancel="cancelLogin" />
 

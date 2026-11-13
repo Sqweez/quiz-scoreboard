@@ -10,6 +10,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 
 // Client for the Quiz Please rating API (rating-api.quizplease.ru), mirroring the rating.quizplease.ru front.
 // Its accounts and tokens are separate from the admin API (api.quizplease.com).
@@ -32,53 +33,116 @@ class QuizPleaseRatingClient
         });
     }
 
-    public function login(User $user, string $email, string $password): void
-    {
-        $response = $this->send(fn () => $this->http()->post('/api/auth/login', ['email' => $email, 'password' => $password]));
+    public function __construct(private QuizPleaseClient $admin) {}
 
-        if (in_array($response->status(), [401, 422], true)) {
-            throw QuizPleaseException::ratingInvalidCredentials();
-        }
-
-        // The front keeps the whole user and takes the token and the city code from it.
-        $token = $response->json('result.user.token');
-        $city = $response->json('result.user.city.code');
-        throw_unless($response->successful() && is_string($token) && str_contains($token, '|') && is_string($city) && $city !== '',
-            QuizPleaseException::ratingUnavailable());
-
-        $user->forceFill(['quizplease_rating_token' => $token, 'quizplease_rating_city' => $city])->save();
-    }
-
-    // Same payload as the "Добавление новой игры" form of the rating front.
+    // Creates the game unless the rating already lists it for the city. The rating API cannot search by number and lists
+    // only part of the city's games (those the front offers for result upload), so this guards the common repeat only.
     public function createGame(User $user, Game $game): void
     {
-        throw_if($user->quizplease_rating_token === null, QuizPleaseException::ratingAuthRequired());
+        $exists = collect($this->cityGames($user))->contains(fn (array $ratingGame) => ($ratingGame['number'] ?? null) === $game->external_id);
 
-        [$date, $time] = explode(' ', $game->extra['date']);
-
-        // The token is stored as "id|secret"; the front sends only the secret part.
-        $response = $this->send(fn () => $this->http()
-            ->withToken(explode('|', $user->quizplease_rating_token, 2)[1])
-            ->post('/api/game', [
-                'city' => $user->quizplease_rating_city,
-                'schedule' => ['time' => $time, 'date' => $date],
-                'rating' => $game->rating_category_id,
-                'title' => $game->extra['title'],
-                'number' => $game->external_id,
-                'package' => '',
-                'package_number' => $game->extra['gameNumber'],
-                'is_count' => $game->rating_include_scores,
-            ]));
-
-        if ($response->status() === 401) {
-            $user->forceFill(['quizplease_rating_token' => null, 'quizplease_rating_city' => null])->save();
-            throw QuizPleaseException::ratingAuthRequired();
+        if ($exists) {
+            return;
         }
+
+        $response = $this->authorized($user, fn (PendingRequest $http) => $http->post('/api/game', $this->gamePayload($user, $game)));
+
         if ($response->clientError()) {
             $message = $response->json('message');
             throw QuizPleaseException::ratingRejected(is_string($message) ? $message : null);
         }
         throw_unless($response->successful(), QuizPleaseException::ratingUnavailable());
+    }
+
+    // Package names already used by the city's games; the rating API has no package list of its own.
+    /** @return list<string> */
+    public function packages(User $user): array
+    {
+        return collect($this->cityGames($user))
+            ->map(fn (array $ratingGame) => $ratingGame['package_entity']['title'] ?? null)
+            ->filter(fn ($title) => is_string($title) && trim($title) !== '')
+            ->map(fn (string $title) => trim($title))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function cityGames(User $user): array
+    {
+        $response = $this->authorized($user, fn (PendingRequest $http) => $http->get('/api/game', ['city' => $user->quizplease_rating_city_id]));
+        $games = $response->json('result');
+        throw_unless($response->successful() && is_array($games), QuizPleaseException::ratingUnavailable());
+
+        return array_values(array_filter($games, 'is_array'));
+    }
+
+    // Sends a request with the user's rating token, signing in first when there is none and once more when it expired.
+    private function authorized(User $user, callable $request): Response
+    {
+        if ($user->quizplease_rating_token === null) {
+            $this->signIn($user);
+        }
+
+        // The token is stored as "id|secret"; the front sends only the secret part.
+        $send = fn () => $this->send(fn () => $request($this->http()->withToken(explode('|', $user->quizplease_rating_token, 2)[1])));
+        $response = $send();
+
+        if ($response->status() === 401) {
+            $this->signIn($user);
+            $response = $send();
+        }
+
+        return $response;
+    }
+
+    // Same sign-in as the "Рейтинг" page of admin.quizplease.com: the admin profile is synchronised to the rating
+    // module for a one-time token, which the rating front exchanges for its own token in loginByToken.
+    private function signIn(User $user): void
+    {
+        // A missing key is a server misconfiguration, not something the user can fix.
+        $key = config('services.quizplease.rating_synchronize_key')
+            ?: throw new RuntimeException('QUIZPLEASE_RATING_SYNCHRONIZE_KEY must be set.');
+        $profile = $this->admin->profile($user);
+
+        $synchronized = $this->send(fn () => $this->http()->withHeaders(['SynchronizeKey' => $key])
+            ->post('/api/synchronize/auth/create', $profile));
+        // A rejected key means it was rotated on their side and the server configuration has to be updated.
+        throw_if(in_array($synchronized->status(), [401, 403], true), new RuntimeException('The rating module rejected QUIZPLEASE_RATING_SYNCHRONIZE_KEY.'));
+        $oneTimeToken = $synchronized->json('user_token.token');
+        throw_unless($synchronized->successful() && is_string($oneTimeToken) && $oneTimeToken !== '', QuizPleaseException::ratingUnavailable());
+
+        $login = $this->send(fn () => $this->http()->post('/api/auth/loginByToken', ['token' => $oneTimeToken]));
+        $token = $login->json('result.user.token');
+        $city = $login->json('result.user.city');
+        throw_unless($login->successful() && is_string($token) && str_contains($token, '|')
+            && is_int($city['id'] ?? null) && is_string($city['code'] ?? null) && $city['code'] !== '',
+            QuizPleaseException::ratingUnavailable());
+
+        // The game form sends the city code, the game list filters by the city id.
+        $user->forceFill([
+            'quizplease_rating_token' => $token,
+            'quizplease_rating_city' => $city['code'],
+            'quizplease_rating_city_id' => $city['id'],
+        ])->save();
+    }
+
+    // Same payload as the "Добавление новой игры" form of the rating front.
+    private function gamePayload(User $user, Game $game): array
+    {
+        [$date, $time] = explode(' ', $game->extra['date']);
+
+        return [
+            'city' => $user->quizplease_rating_city,
+            'schedule' => ['time' => $time, 'date' => $date],
+            'rating' => $game->rating_category_id,
+            'title' => $game->extra['title'],
+            'number' => $game->external_id,
+            'package' => $game->rating_package,
+            'package_number' => $game->extra['gameNumber'],
+            'is_count' => $game->rating_include_scores,
+        ];
     }
 
     private function http(): PendingRequest

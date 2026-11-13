@@ -12,17 +12,10 @@ import { Label } from '~/components/ui/label'
 import { Spinner } from '~/components/ui/spinner'
 import { getRequestMessage } from '~/utils/http'
 
-const props = withDefaults(defineProps<{
+const props = defineProps<{
   open: boolean
   submit: (username: string, password: string) => Promise<void>
-  title?: string
-  description?: string
-  usernameLabel?: string
-}>(), {
-  title: 'Вход в «Квиз, плиз!»',
-  description: 'Данные аккаунта admin.quizplease.com. Пароль не сохраняется.',
-  usernameLabel: 'Логин'
-})
+}>()
 
 const emit = defineEmits<{
   cancel: []
@@ -70,15 +63,15 @@ function handleOpenChange(open: boolean): void {
   <AlertDialog :open="open" @update:open="handleOpenChange">
     <AlertDialogContent>
       <AlertDialogTitle class="font-display text-2xl font-medium">
-        {{ title }}
+        Вход в «Квиз, плиз!»
       </AlertDialogTitle>
       <AlertDialogDescription class="text-sm text-muted-foreground">
-        {{ description }}
+        Данные аккаунта admin.quizplease.com. Пароль не сохраняется.
       </AlertDialogDescription>
 
       <form class="grid gap-4" novalidate @submit.prevent="handleSubmit">
         <div class="grid gap-2">
-          <Label for="quizplease-username">{{ usernameLabel }}</Label>
+          <Label for="quizplease-username">Логин</Label>
           <Input id="quizplease-username" v-model="username" type="email" autocomplete="username" :disabled="isSubmitting" />
         </div>
         <div class="grid gap-2">

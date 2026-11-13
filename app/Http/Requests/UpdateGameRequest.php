@@ -18,6 +18,7 @@ class UpdateGameRequest extends FormRequest
             ],
             'ratingCategoryId' => ['sometimes', 'nullable', 'integer', new RatingCategory],
             'ratingIncludeScores' => ['sometimes', 'boolean'],
+            'ratingPackage' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
 

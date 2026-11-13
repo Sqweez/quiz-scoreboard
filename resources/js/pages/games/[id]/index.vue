@@ -21,7 +21,7 @@ const isConfirmingDelete = ref(false)
 const isFinishing = ref(false)
 const isConfirmingFinish = ref(false)
 const isCreatingRatingGame = ref(false)
-const ratingLogin = useQuizPleaseLogin('/api/quizplease/rating/login', 'rating_auth_required')
+const { isLoginOpen, requireLogin, login, cancelLogin } = useQuizPleaseLogin()
 
 const { copyStatus, copyStatusText, copyResults } = useResultsClipboard()
 
@@ -29,7 +29,7 @@ const teamsCount = computed(() => quizStore.currentGame?.teams.length ?? 0)
 const roundsCount = computed(() => quizStore.currentGame?.rounds.length ?? 0)
 const isFinished = computed(() => quizStore.currentGame?.status === 'finished')
 
-// The rating module needs the linked game's details and a category; the include-scores flag always has a value.
+// The rating module needs the linked game's details, a category and a package; the include-scores flag always has a value.
 const canUploadRating = computed(() => {
   const game = quizStore.currentGame
   const extra = game?.extra
@@ -38,6 +38,7 @@ const canUploadRating = computed(() => {
     isFinished.value
     && game?.externalId
     && game.ratingCategoryId !== null
+    && game.ratingPackage
     && extra?.title
     && extra.gameNumber
     && extra.packageNumber
@@ -156,9 +157,9 @@ async function createRatingGame(): Promise<void> {
   try {
     await quizStore.createRatingGame()
   } catch (requestError) {
-    // Without a rating token the login dialog opens and the creation runs again after it;
-    // other errors are already shown by the store.
-    ratingLogin.requireLogin(requestError, createRatingGame)
+    // The rating sign-in goes through the admin account: without its token the login dialog opens
+    // and the creation runs again after it; other errors are already shown by the store.
+    requireLogin(requestError, createRatingGame)
   } finally {
     isCreatingRatingGame.value = false
   }
@@ -323,14 +324,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
         @confirm="confirmFinish"
       />
 
-      <QuizPleaseLoginDialog
-        :open="ratingLogin.isLoginOpen.value"
-        :submit="ratingLogin.login"
-        title="Вход в рейтинг «Квиз, плиз!»"
-        description="Данные аккаунта rating.quizplease.ru. Пароль не сохраняется."
-        username-label="Email"
-        @cancel="ratingLogin.cancelLogin"
-      />
+      <QuizPleaseLoginDialog :open="isLoginOpen" :submit="login" @cancel="cancelLogin" />
 
       <ConfirmDialog
         v-model:open="isConfirmingDelete"

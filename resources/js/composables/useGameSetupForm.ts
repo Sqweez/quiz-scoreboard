@@ -13,6 +13,7 @@ type CreateGamePayload = {
   externalId?: string
   ratingCategoryId: number | null
   ratingIncludeScores: boolean
+  ratingPackage: string | null
   teamNames: string[]
   rounds: Array<{ title: string }>
 }
@@ -37,6 +38,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
   const externalId = ref('')
   const ratingCategoryId = ref<number | null>(null)
   const ratingIncludeScores = ref(true)
+  const ratingPackage = ref('')
   // Saving a linked game reads it from Quiz Please, so a missing login is resolved and the save retried.
   const quizPleaseLogin = useQuizPleaseLogin()
 
@@ -156,6 +158,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
         ...(externalId.value.trim() ? { externalId: externalId.value.trim() } : {}),
         ratingCategoryId: ratingCategoryId.value,
         ratingIncludeScores: ratingIncludeScores.value,
+        ratingPackage: ratingPackage.value.trim() || null,
         teamNames: filledTeamNames.value,
         rounds: Array.from({ length: roundsCount.value }, (_, index) => ({ title: `Раунд ${index + 1}` }))
       })
@@ -180,6 +183,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     externalIdError,
     ratingCategoryId,
     ratingIncludeScores,
+    ratingPackage,
     isLoginOpen: quizPleaseLogin.isLoginOpen,
     login: quizPleaseLogin.login,
     cancelLogin: quizPleaseLogin.cancelLogin,

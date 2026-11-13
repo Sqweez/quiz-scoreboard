@@ -89,6 +89,9 @@ class GameController extends Controller
             if (array_key_exists('ratingIncludeScores', $input)) {
                 $game->rating_include_scores = $input['ratingIncludeScores'];
             }
+            if (array_key_exists('ratingPackage', $input)) {
+                $game->rating_package = $input['ratingPackage'];
+            }
         }, allowFinished: true));
     }
 

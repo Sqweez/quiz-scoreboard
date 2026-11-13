@@ -43,26 +43,31 @@ class QuizPleaseClient
         $user->forceFill(['quizplease_token' => $token])->save();
     }
 
+    // The admin user's profile in the shape the admin sends to the rating module when signing in there.
+    /** @return array{name: string, email: string, is_root: bool, cities: list<array{code: string, title: string}>} */
+    public function profile(User $user): array
+    {
+        $profile = $this->authorized($user, '/api/user')->json('data');
+        throw_unless(is_string($profile['name'] ?? null) && is_string($profile['email'] ?? null), QuizPleaseException::unavailable());
+
+        return [
+            'name' => $profile['name'],
+            'email' => $profile['email'],
+            'is_root' => ($profile['role']['slug'] ?? null) === 'root',
+            'cities' => collect($profile['managed_cities'] ?? [])
+                ->map(fn (array $city) => ['code' => (string) $city['slug'], 'title' => (string) $city['title']])
+                ->values()
+                ->all(),
+        ];
+    }
+
     /**
      * @return array{externalId: string, title: string, date: ?string, teams: list<array{externalId: string, name: string}>,
      *     extra: array{title: string, gameNumber: ?string, packageNumber: ?string, date: ?string}}
      */
     public function game(User $user, string $externalId): array
     {
-        throw_if($user->quizplease_token === null, QuizPleaseException::authRequired());
-
-        $response = $this->send(fn () => $this->http()->withToken($user->quizplease_token)
-            ->get("/api/games/{$externalId}?relationships[]=game_records.game_team"));
-
-        if ($response->status() === 401) {
-            // The API offers no confirmed refresh flow, so a rejected token requires a new login.
-            $user->forceFill(['quizplease_token' => null])->save();
-            throw QuizPleaseException::authRequired();
-        }
-        throw_if($response->status() === 403, QuizPleaseException::forbidden());
-        throw_if($response->status() === 404, QuizPleaseException::notFound());
-
-        $game = $this->successful($response)->json('data');
+        $game = $this->authorized($user, "/api/games/{$externalId}?relationships[]=game_records.game_team")->json('data');
         throw_unless(is_array($game) && is_string($game['title'] ?? null) && is_array($game['records'] ?? null), QuizPleaseException::unavailable());
 
         $teams = collect($game['records'])
@@ -93,6 +98,23 @@ class QuizPleaseClient
                 'date' => $date,
             ],
         ];
+    }
+
+    private function authorized(User $user, string $path): Response
+    {
+        throw_if($user->quizplease_token === null, QuizPleaseException::authRequired());
+
+        $response = $this->send(fn () => $this->http()->withToken($user->quizplease_token)->get($path));
+
+        if ($response->status() === 401) {
+            // The API offers no confirmed refresh flow, so a rejected token requires a new login.
+            $user->forceFill(['quizplease_token' => null])->save();
+            throw QuizPleaseException::authRequired();
+        }
+        throw_if($response->status() === 403, QuizPleaseException::forbidden());
+        throw_if($response->status() === 404, QuizPleaseException::notFound());
+
+        return $this->successful($response);
     }
 
     private function optionalString(mixed $value): ?string

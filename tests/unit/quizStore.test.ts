@@ -213,7 +213,7 @@ function createGame(): Game {
     externalId: null,
     extra: null,
     ratingCategoryId: null,
-    ratingIncludeScores: true, ratingCreatedAt: null,
+    ratingIncludeScores: true, ratingPackage: null, ratingCreatedAt: null,
     status: 'draft',
     statusLabel: 'Черновик',
     statusActionLabel: 'Завершить',

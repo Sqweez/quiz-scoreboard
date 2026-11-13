@@ -27,3 +27,26 @@ export function useRatingCategories() {
 
   return { categories, error, isLoading, load }
 }
+
+// Package names already used in the user's city in the rating; only suggestions, the package stays free text.
+export function useRatingPackages() {
+  const packages = ref<string[]>([])
+  let requested = false
+
+  async function load(): Promise<void> {
+    if (requested) {
+      return
+    }
+
+    requested = true
+
+    try {
+      packages.value = await http<string[]>('/api/quizplease/rating-packages')
+    } catch {
+      // Suggestions need the admin login and both Quiz Please services; without them the field is typed by hand.
+      requested = false
+    }
+  }
+
+  return { packages, load }
+}

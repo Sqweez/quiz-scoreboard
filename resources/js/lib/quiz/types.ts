@@ -28,6 +28,7 @@ export type GameCore = {
   extra: GameExtra | null
   ratingCategoryId: number | null
   ratingIncludeScores: boolean
+  ratingPackage: string | null
   ratingCreatedAt: string | null
   status: GameStatus
   rounds: Round[]
@@ -67,6 +68,7 @@ export type CreateGameInput = {
   externalId?: string
   ratingCategoryId: number | null
   ratingIncludeScores: boolean
+  ratingPackage: string | null
   teamNames: string[]
   rounds: Array<{
     title: string

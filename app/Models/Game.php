@@ -24,6 +24,7 @@ class Game extends Model
         return $this->status === GameStatus::Finished
             && $this->external_id !== null
             && $this->rating_category_id !== null
+            && !empty($this->rating_package)
             && !empty($this->extra['title'])
             && !empty($this->extra['gameNumber'])
             && !empty($this->extra['packageNumber'])

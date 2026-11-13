@@ -23,7 +23,7 @@ describe('useGameSetupForm', () => {
     expect(createGame).toHaveBeenCalledWith({
       title: 'Final quiz',
       ratingCategoryId: null,
-      ratingIncludeScores: true,
+      ratingIncludeScores: true, ratingPackage: null,
       teamNames: ['Team A'],
       rounds: [{ title: 'Раунд 1' }, { title: 'Раунд 2' }, { title: 'Раунд 3' }]
     })

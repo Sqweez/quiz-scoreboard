@@ -7,6 +7,7 @@ use App\Http\Requests\QuizPleaseLoginRequest;
 use App\Models\Game;
 use App\Services\QuizPleaseClient;
 use App\Services\QuizPleaseRatingClient;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 
@@ -21,11 +22,9 @@ class QuizPleaseController extends Controller
         return response()->noContent();
     }
 
-    public function ratingLogin(QuizPleaseLoginRequest $request, QuizPleaseRatingClient $rating): Response
+    public function ratingPackages(Request $request, QuizPleaseRatingClient $rating): array
     {
-        $rating->login($request->user(), $request->validated('username'), $request->validated('password'));
-
-        return response()->noContent();
+        return $rating->packages($request->user());
     }
 
     public function ratingCategories(QuizPleaseRatingClient $rating): array

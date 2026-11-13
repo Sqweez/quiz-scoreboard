@@ -43,16 +43,6 @@ class QuizPleaseException extends RuntimeException implements ShouldntReport
         return new self('rating_unavailable', 'Рейтинг «Квиз, плиз!» не отвечает. Попробуйте позже.', 502);
     }
 
-    public static function ratingAuthRequired(): self
-    {
-        return new self('rating_auth_required', 'Войдите в рейтинг «Квиз, плиз!», чтобы создать игру.', 409);
-    }
-
-    public static function ratingInvalidCredentials(): self
-    {
-        return new self('rating_invalid_credentials', 'Неверный email или пароль рейтинга «Квиз, плиз!».', 422);
-    }
-
     // The rating API explains rejections in "message"; it is passed on so the user can fix the game.
     public static function ratingRejected(?string $message): self
     {

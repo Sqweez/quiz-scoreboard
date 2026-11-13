@@ -14,7 +14,7 @@ Route::middleware('auth:sanctum')->prefix('quizplease')->controller(QuizPleaseCo
     Route::post('/login', 'login')->middleware('throttle:10,1');
     Route::get('/game', 'game');
     Route::get('/rating-categories', 'ratingCategories');
-    Route::post('/rating/login', 'ratingLogin')->middleware('throttle:10,1');
+    Route::get('/rating-packages', 'ratingPackages');
 });
 
 Route::middleware('auth:sanctum')->prefix('games')->controller(GameController::class)->group(function () {

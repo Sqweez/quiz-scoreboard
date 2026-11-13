@@ -49,6 +49,11 @@ volume `quiz-scoreboard_postgres_data`. Порт БД не публикуетс�
 доступен только на `127.0.0.1:8087`. HTTPS принимает Nginx хоста.
 Не запускать `docker compose down -v`: это удалит рабочую БД.
 
+Production и CI используют PostgreSQL 17 на Debian Bookworm с закреплённым
+digest. Alpine-вариант не проходит `initdb` на этом VPS с CentOS 7 и
+`libseccomp 2.3.1`: запись завершается `Operation not permitted`. Debian-вариант
+проверен на самом VPS со стандартным seccomp; отключать защиту не требуется.
+
 Сертификат установлен через:
 
 ```sh

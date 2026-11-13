@@ -191,6 +191,24 @@ class QuizPleaseRatingGameTest extends TestCase
         $this->actingAs($user)->getJson('/api/quizplease/rating-packages')->assertOk()->assertExactJson(['классика', 'кпклассика']);
     }
 
+    public function test_package_defaults_to_the_question_package_of_the_linked_game_and_stays_editable(): void
+    {
+        Http::fake(['https://api.quizplease.com/api/games/*' => Http::response(['data' => [
+            'title' => 'Квиз, плиз! PVL', 'game_number' => '25', 'package_number' => '#25ким', 'date' => '30.07.2026 19:00', 'records' => [],
+        ]])]);
+        $user = $this->user(adminToken: 'admin-token');
+        $this->actingAs($user);
+        $payload = ['title' => 'Q', 'teamNames' => ['A'], 'rounds' => [['title' => 'R']]];
+
+        $this->postJson('/api/games', [...$payload, 'externalId' => self::EXTERNAL_ID])->assertCreated()->assertJsonPath('ratingPackage', '#25ким');
+        $this->postJson('/api/games', [...$payload, 'externalId' => '01a0a6d4-60fa-715c-b8cf-f2bc6b44dd02', 'ratingPackage' => 'классика'])
+            ->assertCreated()->assertJsonPath('ratingPackage', 'классика');
+
+        $manual = $this->postJson('/api/games', $payload)->assertCreated()->assertJsonPath('ratingPackage', null)->json('id');
+        $this->patchJson("/api/games/{$manual}", ['externalId' => '01a0a6d4-60fa-715c-b8cf-f2bc6b44dd03'])->assertOk()->assertJsonPath('ratingPackage', '#25ким');
+        $this->patchJson("/api/games/{$manual}", ['ratingPackage' => 'классика'])->assertOk()->assertJsonPath('ratingPackage', 'классика');
+    }
+
     public function test_package_is_saved_on_create_and_edit(): void
     {
         $this->actingAs($this->user());

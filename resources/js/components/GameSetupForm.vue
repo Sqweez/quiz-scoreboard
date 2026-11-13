@@ -50,7 +50,7 @@ function handleImported(game: ExternalGame): void {
     return
   }
 
-  applyImport({ externalId: game.externalId, title: game.title, teamNames: game.teams.map((team) => team.name) })
+  applyImport({ externalId: game.externalId, title: game.title, packageNumber: game.extra.packageNumber, teamNames: game.teams.map((team) => team.name) })
 }
 
 async function focusTeam(id: string): Promise<void> {

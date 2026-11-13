@@ -38,7 +38,7 @@ Secrets сохранены `SSH_KEY`, `SSH_KNOWN_HOSTS`, `SSH_HOST`, `SSH_USER`.
 - `/srv/quiz/current`, `/srv/quiz/previous`: ссылки на успешные выпуски.
 - `/srv/quiz/deploy.sh`, `/srv/quiz/backup.sh`: копии скриптов из
   `docker/production/`, устанавливаемые администратором, права 700.
-- `/srv/quiz/backups`: дампы PostgreSQL; хранение 14 дней.
+- `/srv/quiz/backups`: дампы PostgreSQL; хранение 3 суток.
 - `/etc/nginx/conf.d/quiz.conf`: отдельный конфиг только этого домена,
   исходник — `docker/production/quiz.nginx.conf`.
 - `/srv/quiz/tls`: сертификат и ключ; продление существующим cron `acme.sh`.
@@ -53,6 +53,23 @@ Production и CI используют PostgreSQL 17 на Debian Bookworm с за
 digest. Alpine-вариант не проходит `initdb` на этом VPS с CentOS 7 и
 `libseccomp 2.3.1`: запись завершается `Operation not permitted`. Debian-вариант
 проверен на самом VPS со стандартным seccomp; отключать защиту не требуется.
+
+## Laravel Scheduler
+
+Контейнер `scheduler` использует тот же образ коммита и окружение, что `app`,
+и запускает `php artisan schedule:work --no-interaction`. Он автоматически
+запускается с Compose и обновляется при деплое. Расписание задаётся в
+`routes/console.php`; сейчас запланированных задач нет. Для Laravel не нужна
+дополнительная запись в cron VPS. Бэкапы остаются в `/etc/cron.d/quiz-backup`.
+Healthcheck PHP-FPM в scheduler отключён, поскольку этот контейнер выполняет
+CLI-команду. Docker перезапускает его при завершении процесса.
+
+```sh
+docker compose -p quiz-scoreboard --env-file .env -f current/compose.production.yaml logs --tail=100 scheduler
+docker compose -p quiz-scoreboard --env-file .env -f current/compose.production.yaml exec scheduler php artisan schedule:list
+```
+
+Для этих команд используются переменные из раздела диагностики ниже.
 
 Сертификат установлен через:
 

@@ -10,7 +10,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  app:
+  app: &app
     build:
       context: .
       target: app
@@ -30,6 +30,13 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+
+  scheduler:
+    <<: *app
+    command: [php, artisan, 'schedule:work', --no-interaction]
+    init: true
+    healthcheck:
+      disable: true
 
   postgres:
     image: postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065

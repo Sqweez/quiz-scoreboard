@@ -38,7 +38,7 @@ services:
     logging: *logging
 
   postgres:
-    image: postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065
+    image: postgres:17-bookworm@sha256:40865bc877a289da75963d97d72b59633f639fc5af7a4e856bfa3714cae5b536
     environment:
       POSTGRES_DB: ${DB_DATABASE:?Set DB_DATABASE}
       POSTGRES_USER: ${DB_USERNAME:?Set DB_USERNAME}

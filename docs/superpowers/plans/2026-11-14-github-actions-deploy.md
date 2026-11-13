@@ -9,6 +9,6 @@
 - [ ] Add `docker/production/deploy.sh` and `backup.sh`: serialize releases, back up before migrations, check health, keep current/previous release pointers. Never downgrade the database automatically.
 - [ ] Add domain Nginx configuration, issue and install the certificate with existing acme.sh, retain automatic renewal.
 - [ ] Configure private production environment and a dedicated deploy key; upload GitHub secrets without logging them.
-- [ ] Push the migration branch and run the actual Actions pipeline. Keep `main` unchanged until explicitly requested.
+- [ ] Validate the workflow locally and push the migration branch without triggering Actions. Production runs only after push/merge to `main`; keep `main` unchanged until explicitly requested.
 - [ ] Import a fresh read-only Supabase snapshot, compare all fields, remove source credentials, verify backup restoration, then open HTTPS traffic.
 - [ ] Document actual deployment, rollback and backup commands; verify other running projects remain healthy.

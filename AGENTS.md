@@ -38,9 +38,9 @@ Validate HTTP and import input at boundaries; preserve server ownership checks.
 
 ## Verification
 
-Write focused tests for behavior changes. PHP tests use disposable `quiz_test`
-and `quiz_source` databases at localhost:55439; see README. Never run them against
-production. Preserve autosave race tests and import field-level verification.
+Write focused tests for behavior changes. PHP tests use a disposable `quiz_test`
+database at localhost:55439; see README. Never run them against
+production. Preserve autosave race tests.
 Do not use Playwright unless the user asks.
 
 ## Deployment and Production
@@ -59,12 +59,6 @@ Production and CI use the pinned `postgres:17-bookworm` image; Alpine fails
 `initdb` on the VPS seccomp. Never run `docker compose down -v` on the server,
 since it deletes the production volume. Server scripts and the host Nginx
 config are installed manually by the admin; Actions does not update them.
-
-## Data Migration
-
-The Supabase import (`php artisan supabase:import`) is complete. Rerun it only
-on explicit request and read `docs/data-migration.md` first. Never skip
-incompatible accounts or claim a migration based only on synthetic tests.
 
 Do not commit credentials, `.env`, database snapshots or machine-specific files.
 Use `.env.example` for documented configuration. Keep changes scoped and use

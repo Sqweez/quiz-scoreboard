@@ -3,8 +3,6 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Hash;
-use App\Hashing\SupabaseBcryptHasher;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,6 +19,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Hash::extend('bcrypt', fn () => new SupabaseBcryptHasher(config('hashing.bcrypt')));
+        //
     }
 }

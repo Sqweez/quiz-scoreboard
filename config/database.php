@@ -97,15 +97,7 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
-        ],
-
-        'supabase_source' => [
-            'driver' => 'pgsql',
-            'url' => env('SUPABASE_SOURCE_URL'),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'search_path' => 'public',
-            'sslmode' => 'prefer',
+            'timezone' => 'Asia/Almaty',
         ],
 
         'sqlsrv' => [

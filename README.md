@@ -25,7 +25,6 @@ curl --fail http://127.0.0.1:8087/api/health
 выполняет GitHub Actions при push в `main`.
 
 - [Развёртывание, обновление и резервные копии](docs/deployment.md).
-- [Перенос пользователей и данных из Supabase](docs/data-migration.md).
 - [Согласованная спецификация](docs/superpowers/specs/2026-11-13-laravel-monolith-design.md).
 
 ## Локальная разработка
@@ -46,14 +45,12 @@ npm run dev
 
 ## Проверки
 
-PHP feature-тесты используют две отдельные локальные PostgreSQL-базы:
-`quiz_test` и `quiz_source` на порту `55439`, пользователь/пароль `quiz`.
-Эти базы тесты очищают: никогда не направлять их на рабочие данные.
+PHP feature-тесты используют отдельную локальную PostgreSQL-базу
+`quiz_test` на порту `55439`, пользователь/пароль `quiz`.
+Эту базу тесты очищают: никогда не направлять их на рабочие данные.
 
 ```sh
 docker run -d --name quiz-laravel-tests -e POSTGRES_USER=quiz -e POSTGRES_PASSWORD=quiz -e POSTGRES_DB=quiz_test -p 127.0.0.1:55439:5432 postgres:17-alpine
-# После готовности PostgreSQL:
-docker exec quiz-laravel-tests createdb -U quiz quiz_source
 php artisan test
 npm test
 npm run typecheck

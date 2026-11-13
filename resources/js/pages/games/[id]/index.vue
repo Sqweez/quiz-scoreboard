@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, Check, Copy, Pencil, X } from 'lucide-vue-next'
+import { ArrowLeft, Check, Copy, Pencil } from 'lucide-vue-next'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle
+} from '~/components/ui/alert-dialog'
 import { Button } from '~/components/ui/button'
 import { Spinner } from '~/components/ui/spinner'
 import ScoreTable from '~/components/ScoreTable.vue'
@@ -15,6 +22,8 @@ const titleDraft = ref('')
 const titleError = ref('')
 const isDeleting = ref(false)
 const isConfirmingDelete = ref(false)
+const isFinishing = ref(false)
+const isConfirmingFinish = ref(false)
 
 const { copyStatus, copyStatusText, copyResults } = useResultsClipboard()
 
@@ -104,16 +113,27 @@ function handleTitleKeydown(event: KeyboardEvent): void {
   }
 }
 
-async function finishCurrentGame(): Promise<void> {
-  await quizStore.finishGame()
+function requestFinish(): void {
+  isConfirmingFinish.value = true
+}
+
+async function confirmFinish(): Promise<void> {
+  if (isFinishing.value) {
+    return
+  }
+
+  isFinishing.value = true
+
+  try {
+    await quizStore.finishGame()
+  } finally {
+    isFinishing.value = false
+    isConfirmingFinish.value = false
+  }
 }
 
 function requestDelete(): void {
   isConfirmingDelete.value = true
-}
-
-function cancelDelete(): void {
-  isConfirmingDelete.value = false
 }
 
 async function confirmDelete(): Promise<void> {
@@ -204,10 +224,21 @@ function pluralize(count: number, one: string, few: string, many: string): strin
           </label>
 
           <div class="flex flex-col items-start gap-2 lg:items-end">
-            <Button type="button" @click="shareResults">
-              <Copy class="size-4" />
-              Скопировать результаты
-            </Button>
+            <div class="flex flex-wrap gap-2 lg:justify-end">
+              <Button
+                v-if="!isFinished"
+                type="button"
+                variant="outline"
+                @click="requestFinish"
+              >
+                <Check class="size-4" />
+                Завершить игру
+              </Button>
+              <Button type="button" @click="shareResults">
+                <Copy class="size-4" />
+                Скопировать результаты
+              </Button>
+            </div>
             <span
               v-if="copyStatusText"
               class="text-xs"
@@ -240,49 +271,67 @@ function pluralize(count: number, one: string, few: string, many: string): strin
 
       <ScoreTable :read-only="isFinished" />
 
+      <AlertDialog v-model:open="isConfirmingFinish">
+        <AlertDialogContent>
+          <AlertDialogTitle class="font-display text-2xl font-medium">
+            Завершить игру?
+          </AlertDialogTitle>
+          <AlertDialogDescription class="text-sm text-muted-foreground">
+            После завершения очки больше нельзя будет менять.
+          </AlertDialogDescription>
+          <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <AlertDialogCancel as-child>
+              <Button variant="outline" size="lg" :disabled="isFinishing">
+                Отмена
+              </Button>
+            </AlertDialogCancel>
+            <Button
+              size="lg"
+              :disabled="isFinishing || quizStore.isSavingScores"
+              @click="confirmFinish"
+            >
+              <Spinner v-if="isFinishing" />
+              Да, завершить
+            </Button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog v-model:open="isConfirmingDelete">
+        <AlertDialogContent>
+          <AlertDialogTitle class="font-display text-2xl font-medium">
+            Удалить игру?
+          </AlertDialogTitle>
+          <AlertDialogDescription class="text-sm text-muted-foreground">
+            Игра и все очки будут удалены навсегда.
+          </AlertDialogDescription>
+          <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <AlertDialogCancel as-child>
+              <Button variant="outline" size="lg" :disabled="isDeleting">
+                Отмена
+              </Button>
+            </AlertDialogCancel>
+            <Button
+              variant="destructive"
+              size="lg"
+              :disabled="isDeleting"
+              @click="confirmDelete"
+            >
+              <Spinner v-if="isDeleting" />
+              Да, удалить
+            </Button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <footer class="flex flex-wrap items-center justify-end gap-4 border-t border-rule pt-6 text-sm">
         <button
-          v-if="!isFinished"
           type="button"
-          class="inline-flex items-center gap-2 font-medium text-foreground transition-colors hover:text-primary disabled:opacity-60"
-          :disabled="quizStore.isSavingScores"
-          @click="finishCurrentGame"
+          class="text-muted-foreground underline decoration-rule underline-offset-4 transition-colors hover:text-primary hover:decoration-primary"
+          @click="requestDelete"
         >
-          <Check class="size-4" />
-          Завершить игру
+          Удалить игру
         </button>
-
-        <template v-if="!isConfirmingDelete">
-          <button
-            type="button"
-            class="text-muted-foreground underline decoration-rule underline-offset-4 transition-colors hover:text-primary hover:decoration-primary"
-            @click="requestDelete"
-          >
-            Удалить игру
-          </button>
-        </template>
-
-        <template v-else>
-          <span class="text-foreground">Удалить навсегда?</span>
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 font-medium text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary disabled:opacity-60"
-            :disabled="isDeleting"
-            @click="confirmDelete"
-          >
-            <Spinner v-if="isDeleting" />
-            Да, удалить
-          </button>
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
-            :disabled="isDeleting"
-            @click="cancelDelete"
-          >
-            <X class="size-3.5" />
-            Отмена
-          </button>
-        </template>
       </footer>
     </template>
 

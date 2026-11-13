@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { useGameSetupForm } from '../../app/composables/useGameSetupForm'
+import { useGameSetupForm } from '../../resources/js/composables/useGameSetupForm'
 
 describe('useGameSetupForm', () => {
   it('creates a game from valid draft values and navigates to the game page', async () => {

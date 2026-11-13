@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { useQuizStore } from '../../app/stores/quiz'
+import { useQuizStore } from '../../resources/js/stores/quiz'
+import { http } from '../../resources/js/utils/http'
+
+vi.mock('../../resources/js/utils/http', () => ({ http: vi.fn(), getRequestMessage: (error: Error) => error.message }))
+
 import type { Game } from '#shared/quiz'
 
 const SCORE_SAVE_DEBOUNCE_MS = 350
@@ -71,6 +75,70 @@ describe('useQuizStore score autosave', () => {
     expect(store.currentGame?.teams[0]?.scores['round-1']).toBe(7)
     expect(store.scoreSyncTone).toBe('saved')
   })
+
+  it('saves the latest queued score before switching to another game', async () => {
+    const { fetchMock, store } = createStoreWithDelayedScoreSave()
+    const nextGame = { ...createGame(), id: 'game-2', title: 'Next game' }
+
+    await store.updateTeamScore('team-1', 'round-1', 5)
+    await vi.advanceTimersByTimeAsync(SCORE_SAVE_DEBOUNCE_MS)
+    await store.updateTeamScore('team-1', 'round-1', 7)
+    const loadPromise = store.loadGame(nextGame.id)
+
+    expect(store.currentGame?.id).toBe('game-1')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(API_DELAY_MS)
+    expect(getLastSavedScore(fetchMock)).toBe(7)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(store.currentGame?.id).toBe('game-1')
+
+    fetchMock.mockResolvedValueOnce(nextGame)
+    await vi.advanceTimersByTimeAsync(API_DELAY_MS)
+    await loadPromise
+
+    expect(fetchMock.mock.calls[2]).toEqual(['/api/games/game-2'])
+    expect(store.currentGame?.id).toBe('game-2')
+    expect(store.hasPendingScoreChanges).toBe(false)
+  })
+
+  it('loads only the latest requested game when rapid switches wait for the same save', async () => {
+    const { fetchMock, store } = createStoreWithDelayedScoreSave()
+    const nextGame = { ...createGame(), id: 'game-3' }
+    await store.updateTeamScore('team-1', 'round-1', 5)
+    await vi.advanceTimersByTimeAsync(SCORE_SAVE_DEBOUNCE_MS)
+    await store.updateTeamScore('team-1', 'round-1', 7)
+    const firstLoad = store.loadGame('game-2')
+    const latestLoad = store.loadGame('game-3')
+
+    await vi.advanceTimersByTimeAsync(API_DELAY_MS)
+    fetchMock.mockResolvedValueOnce(nextGame)
+    await vi.advanceTimersByTimeAsync(API_DELAY_MS)
+    await Promise.all([firstLoad, latestLoad])
+
+    expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+      '/api/games/game-1/scores/bulk',
+      '/api/games/game-1/scores/bulk',
+      '/api/games/game-3'
+    ])
+    expect(store.currentGame?.id).toBe('game-3')
+  })
+
+  it('keeps the current game and pending score when a save blocks switching games', async () => {
+    const { fetchMock, store } = createStoreWithDelayedScoreSave()
+    fetchMock.mockRejectedValue(new Error('Saving failed.'))
+    await store.updateTeamScore('team-1', 'round-1', 7)
+
+    await store.loadGame('game-2')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/games/game-1/scores/bulk')
+    expect(store.currentGame?.id).toBe('game-1')
+    expect(store.currentGame?.teams[0]?.scores['round-1']).toBe(7)
+    expect(store.hasPendingScoreChanges).toBe(true)
+    expect(store.scoreSyncTone).toBe('error')
+    expect(store.error).toBe('Saving failed.')
+  })
+
 })
 
 describe('useQuizStore game loading', () => {
@@ -87,7 +155,7 @@ describe('useQuizStore game loading', () => {
     const game = createGame()
     const fetchMock = vi.fn().mockResolvedValue(game)
 
-    vi.stubGlobal('$fetch', fetchMock)
+    vi.mocked(http).mockImplementation(fetchMock)
 
     await store.loadGame(game.id)
 
@@ -104,7 +172,7 @@ function createStoreWithDelayedScoreSave(): {
   const store = useQuizStore()
 
   store.currentGame = createGame()
-  const fetchMock = vi.fn((_url: string, _options: { body: unknown }) =>
+  const fetchMock = vi.fn((_url: string, _options?: { body?: unknown }) =>
     new Promise<Game>((resolve) => {
       setTimeout(() => {
         resolve({
@@ -115,7 +183,7 @@ function createStoreWithDelayedScoreSave(): {
     })
   )
 
-  vi.stubGlobal('$fetch', fetchMock)
+  vi.mocked(http).mockImplementation(fetchMock)
 
   return { fetchMock, store }
 }

@@ -23,3 +23,11 @@ logs
 .env
 .env.*
 !.env.example
+
+# Laravel runtime and build output
+/vendor
+/public/build
+/public/hot
+.phpunit.cache
+
+.phpunit.result.cache

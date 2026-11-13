@@ -1,32 +1,47 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Stack and Structure
 
-This is a minimal Nuxt 4 application. The app entry point is `app/app.vue`; add routed pages under `app/pages/`, shared Vue components under `app/components/`, and composables under `app/composables/` as the project grows. Static files that should be served as-is belong in `public/`, such as `public/favicon.ico` and `public/robots.txt`. Core project configuration lives in `nuxt.config.ts`, with TypeScript references in `tsconfig.json`.
+This is a Laravel 13 + Inertia + Vue monolith. PHP application code lives in
+`app/`, HTTP routes in `routes/web.php`, schema migrations in `database/migrations/`,
+and Vue pages/components/stores in `resources/js/`. Shared quiz types and scoring
+functions live in `shared/quiz/`. Static assets belong in `public/`.
 
-## Build, Test, and Development Commands
+## Commands
 
-Use npm, since `package-lock.json` is committed.
+Use Composer with PHP 8.4 and npm (`composer.lock` and `package-lock.json` are committed).
 
-- `npm install`: install dependencies and run Nuxt preparation through `postinstall`.
-- `npm run dev`: start the local development server, usually at `http://localhost:3000`.
-- `npm run build`: create a production build with `nuxt build`.
-- `npm run preview`: preview the built application locally.
-- `npm run generate`: generate static output for compatible deployments.
+- `composer install` and `npm ci`: install dependencies.
+- `php artisan serve` and `npm run dev`: local app and Vite dev server.
+- `php artisan test`: PostgreSQL-backed feature tests.
+- `npm test`: client unit tests.
+- `npm run typecheck` and `npm run build`: TypeScript and production assets.
+- `docker compose build` and `docker compose up -d`: VPS images and services.
+- `docker compose run --rm app php artisan migrate --force`: production migrations.
 
-## Coding Style & Naming Conventions
+## Style and Scope
 
-Use Vue single-file components with `<script setup lang="ts">` when component logic is needed. Keep indentation at two spaces, matching the existing Vue and config files. Name Vue components in PascalCase, such as `ScoreBoard.vue`; name composables with the `use` prefix, such as `useQuizScores.ts`. Prefer clear TypeScript types for shared state and props. No formatter or linter is currently configured, so keep changes small and consistent with Nuxt defaults.
+Use Vue single-file components with `<script setup lang="ts">`, two-space
+indentation, PascalCase component names and `use` composable prefixes.
+PHP follows Laravel conventions. Make surgical changes and avoid unrelated
+refactoring, extra configurability, silent fallbacks and swallowed exceptions.
+Validate HTTP and import input at boundaries; preserve server ownership checks.
 
-## Testing Guidelines
+## Verification
 
-No test framework is configured yet. For new behavior, add focused tests before relying on manual checks; Vitest with `@vue/test-utils` is the expected fit for Nuxt/Vue unit tests. Place tests near the code or in a future `tests/` directory, using names like `ScoreBoard.test.ts`. Until tests are added, verify changes with `npm run build` and a local `npm run dev` smoke test.
-Do not test it via playwright, if i don't ask about it
+Write focused tests for behavior changes. PHP tests use disposable `quiz_test`
+and `quiz_source` databases at localhost:55439; see README. Never run them against
+production. Preserve autosave race tests and import field-level verification.
+Do not use Playwright unless the user asks.
 
-## Commit & Pull Request Guidelines
+## Migration and Deployment
 
-This repository has no existing commits to infer a local convention from. Use concise, imperative commit messages such as `Add quiz scoreboard layout` or `Configure Vitest`. Pull requests should include a short summary, verification steps, linked issues when available, and screenshots for visible UI changes. Keep each PR scoped to one feature or fix.
+Read `docs/data-migration.md` before importing data. Preserve UUIDs, password
+hashes, timestamps, ordering and fractional scores. Never skip incompatible
+accounts or claim production migration based only on synthetic tests.
+Deployment and backup commands live in `docs/deployment.md`.
 
-## Security & Configuration Tips
-
-Do not commit secrets or machine-specific `.env` files. Document required environment variables in a committed example file if configuration is added later.
+Do not commit credentials, `.env`, database snapshots or machine-specific files.
+Use `.env.example` for documented configuration. Keep changes scoped and use
+concise imperative commit messages; PRs include verification and visible UI
+screenshots when applicable.

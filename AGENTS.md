@@ -60,12 +60,6 @@ Production and CI use the pinned `postgres:17-bookworm` image; Alpine fails
 since it deletes the production volume. Server scripts and the host Nginx
 config are installed manually by the admin; Actions does not update them.
 
-## Legacy Accounts
-
-The Supabase import is complete and its tooling was removed. Imported
-accounts may still hold `$2a$`/`$2b$` bcrypt hashes; keep
-`SupabaseBcryptHasher` until every such hash has been rehashed on login.
-
 Do not commit credentials, `.env`, database snapshots or machine-specific files.
 Use `.env.example` for documented configuration. Keep changes scoped and use
 concise imperative commit messages; PRs include verification and visible UI

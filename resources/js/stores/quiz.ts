@@ -159,7 +159,7 @@ export const useQuizStore = defineStore('quiz', () => {
     }), true, true, gameId)
   }
 
-  async function createRatingGame(): Promise<void> {
+  async function uploadRating(): Promise<void> {
     if (!currentGame.value) {
       return
     }
@@ -167,6 +167,16 @@ export const useQuizStore = defineStore('quiz', () => {
     const gameId = currentGame.value.id
 
     await requestGame(() => http<Game>(`/api/games/${gameId}/rating`, { method: 'POST' }), false, true, gameId)
+  }
+
+  async function createRatingGame(): Promise<void> {
+    if (!currentGame.value) {
+      return
+    }
+
+    const gameId = currentGame.value.id
+
+    await requestGame(() => http<Game>(`/api/games/${gameId}/rating/game`, { method: 'POST' }), false, true, gameId)
   }
 
   async function addTeam(name = `Команда ${(currentGame.value?.teams.length ?? 0) + 1}`): Promise<void> {
@@ -595,6 +605,7 @@ export const useQuizStore = defineStore('quiz', () => {
     finishGame,
     updateGameTitle,
     updateGameDetails,
+    uploadRating,
     createRatingGame,
     addTeam,
     deleteTeam,

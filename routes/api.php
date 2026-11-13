@@ -28,7 +28,9 @@ Route::middleware('auth:sanctum')->prefix('games')->controller(GameController::c
         Route::patch('/{game}', 'update');
         Route::delete('/{game}', 'destroy');
         Route::post('/{game}/finish', 'finish');
-        Route::post('/{game}/rating', 'createRatingGame');
+        Route::post('/{game}/rating', 'uploadRating');
+        Route::post('/{game}/rating/game', 'createRatingGame');
+        Route::get('/{game}/rating/results', 'ratingResults');
         Route::post('/{game}/teams', 'addTeam');
         Route::patch('/{game}/teams/{team}', 'renameTeam');
         Route::delete('/{game}/teams/{team}', 'deleteTeam');

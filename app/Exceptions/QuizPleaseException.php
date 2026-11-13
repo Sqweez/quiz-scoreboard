@@ -59,6 +59,11 @@ class QuizPleaseException extends RuntimeException implements ShouldntReport
         return new self('rating_already_created', 'Игра уже создана в рейтинге «Квиз, плиз!».', 409);
     }
 
+    public static function ratingAlreadyUploaded(): self
+    {
+        return new self('rating_already_uploaded', 'Результаты игры уже отправлены в рейтинг «Квиз, плиз!».', 409);
+    }
+
     public function render(): JsonResponse
     {
         return response()->json(['message' => $this->getMessage(), 'reason' => $this->reason], $this->status);

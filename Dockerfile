@@ -1,7 +1,7 @@
 FROM php:8.4-fpm-bookworm@sha256:b75642e8c89c321039f351466134df951576fb0f7017117b3931e9a19b908d6c AS php-base
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libpq-dev libonig-dev libfcgi-bin unzip \
-    && docker-php-ext-install -j$(nproc) pdo_pgsql mbstring opcache \
+    && apt-get install -y --no-install-recommends libpq-dev libonig-dev libzip-dev libfcgi-bin unzip \
+    && docker-php-ext-install -j$(nproc) pdo_pgsql mbstring opcache zip \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /var/www/html
 

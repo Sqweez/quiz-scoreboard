@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, Check, Copy, Pencil, Upload } from 'lucide-vue-next'
+import { ArrowLeft, Check, Copy, Pencil } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
-import { Spinner } from '~/components/ui/spinner'
 import ConfirmDialog from '~/components/ConfirmDialog.vue'
-import QuizPleaseLoginDialog from '~/components/QuizPleaseLoginDialog.vue'
+import RatingMenu from '~/components/RatingMenu.vue'
 import ScoreTable from '~/components/ScoreTable.vue'
 import { useResultsClipboard } from '~/composables/useResultsClipboard'
-import { useQuizPleaseLogin } from '~/composables/useQuizPleaseLogin'
 import { useQuizStore } from '~/stores/quiz'
 import { createPendingNavigation } from '~/utils/pendingNavigation'
 
@@ -20,8 +18,8 @@ const isDeleting = ref(false)
 const isConfirmingDelete = ref(false)
 const isFinishing = ref(false)
 const isConfirmingFinish = ref(false)
-const isCreatingRatingGame = ref(false)
-const { isLoginOpen, requireLogin, login, cancelLogin } = useQuizPleaseLogin()
+const ratingNotice = ref('')
+let ratingNoticeTimer: ReturnType<typeof setTimeout> | null = null
 
 const { copyStatus, copyStatusText, copyResults } = useResultsClipboard()
 
@@ -85,6 +83,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopNavigationGuard()
+  if (ratingNoticeTimer) {
+    clearTimeout(ratingNoticeTimer)
+  }
   window.removeEventListener('pagehide', flushScoresBeforePageHide)
   document.removeEventListener('visibilitychange', flushScoresWhenHidden)
 })
@@ -147,22 +148,17 @@ async function confirmFinish(): Promise<void> {
   }
 }
 
-async function createRatingGame(): Promise<void> {
-  if (isCreatingRatingGame.value) {
-    return
+function showRatingNotice(message: string): void {
+  ratingNotice.value = message
+
+  if (ratingNoticeTimer) {
+    clearTimeout(ratingNoticeTimer)
   }
 
-  isCreatingRatingGame.value = true
-
-  try {
-    await quizStore.createRatingGame()
-  } catch (requestError) {
-    // The rating sign-in goes through the admin account: without its token the login dialog opens
-    // and the creation runs again after it; other errors are already shown by the store.
-    requireLogin(requestError, createRatingGame)
-  } finally {
-    isCreatingRatingGame.value = false
-  }
+  ratingNoticeTimer = setTimeout(() => {
+    ratingNotice.value = ''
+    ratingNoticeTimer = null
+  }, 5000)
 }
 
 function requestDelete(): void {
@@ -266,18 +262,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
                 <Check class="size-4" />
                 Завершить игру
               </Button>
-              <Button
-                v-if="canUploadRating"
-                type="button"
-                variant="outline"
-                :disabled="isCreatingRatingGame || Boolean(quizStore.currentGame.ratingCreatedAt)"
-                @click="createRatingGame"
-              >
-                <Spinner v-if="isCreatingRatingGame" />
-                <Check v-else-if="quizStore.currentGame.ratingCreatedAt" class="size-4" />
-                <Upload v-else class="size-4" />
-                {{ quizStore.currentGame.ratingCreatedAt ? 'Игра создана в рейтинге' : 'Загрузить рейтинг' }}
-              </Button>
+              <RatingMenu v-if="canUploadRating" @done="showRatingNotice" />
               <Button type="button" @click="shareResults">
                 <Copy class="size-4" />
                 Скопировать результаты
@@ -289,6 +274,9 @@ function pluralize(count: number, one: string, few: string, many: string): strin
               :class="copyStatus === 'error' ? 'text-primary' : 'text-muted-foreground'"
             >
               {{ copyStatusText }}
+            </span>
+            <span v-if="ratingNotice" class="text-xs text-foreground" role="status">
+              {{ ratingNotice }}
             </span>
             <Link
               :href="`/games/${quizStore.currentGame.id}/edit`"
@@ -323,8 +311,6 @@ function pluralize(count: number, one: string, few: string, many: string): strin
         :disabled="quizStore.isSavingScores"
         @confirm="confirmFinish"
       />
-
-      <QuizPleaseLoginDialog :open="isLoginOpen" :submit="login" @cancel="cancelLogin" />
 
       <ConfirmDialog
         v-model:open="isConfirmingDelete"

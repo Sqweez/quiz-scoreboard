@@ -19,6 +19,8 @@ return new class extends Migration {
             $table->string('rating_package')->nullable();
             // Set once the game has been created in the rating module, so it is not created twice.
             $table->timestamp('rating_created_at')->nullable();
+            // Set once the results table has been queued for upload in the rating module.
+            $table->timestamp('rating_uploaded_at')->nullable();
         });
     }
 
@@ -29,7 +31,7 @@ return new class extends Migration {
         });
 
         Schema::table('games', function (Blueprint $table) {
-            $table->dropColumn(['rating_package', 'rating_created_at']);
+            $table->dropColumn(['rating_package', 'rating_created_at', 'rating_uploaded_at']);
         });
     }
 };

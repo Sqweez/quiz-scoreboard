@@ -54,6 +54,21 @@ class QuizPleaseRatingClient
         throw_unless($response->successful(), QuizPleaseException::ratingUnavailable());
     }
 
+    // Queues the results table for processing, like the "Загрузка списка игр" page of the rating front.
+    // The rating finds the game by the file name, which must be the game's external id.
+    public function queueResults(User $user, Game $game, string $path): void
+    {
+        $response = $this->authorized($user, fn (PendingRequest $http) => $http
+            ->attach('files[]', file_get_contents($path), "{$game->external_id}.xlsx")
+            ->post('/api/result/queue', ['city' => $user->quizplease_rating_city_id]));
+
+        if ($response->clientError()) {
+            $message = $response->json('message');
+            throw QuizPleaseException::ratingRejected(is_string($message) ? $message : null);
+        }
+        throw_unless($response->successful(), QuizPleaseException::ratingUnavailable());
+    }
+
     // Package names already used by the city's games; the rating API has no package list of its own.
     /** @return list<string> */
     public function packages(User $user): array

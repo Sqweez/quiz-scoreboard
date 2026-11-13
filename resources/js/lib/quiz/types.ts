@@ -30,6 +30,7 @@ export type GameCore = {
   ratingIncludeScores: boolean
   ratingPackage: string | null
   ratingCreatedAt: string | null
+  ratingUploadedAt: string | null
   status: GameStatus
   rounds: Round[]
   teams: Team[]

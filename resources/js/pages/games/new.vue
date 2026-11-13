@@ -20,10 +20,10 @@ import GameSetupForm from '~/components/GameSetupForm.vue'
         Новая игра
       </p>
       <h1 class="mt-3 font-display text-4xl font-medium leading-tight lg:text-5xl">
-        Подготовка к подсчёту
+        Кто играет сегодня
       </h1>
       <p class="mt-3 max-w-xl text-sm text-muted-foreground">
-        Заведите команды и раунды. Дальше откроется таблица и можно начинать вносить баллы.
+        Название, команды и количество раундов. Всё можно поменять и после старта.
       </p>
     </header>
 

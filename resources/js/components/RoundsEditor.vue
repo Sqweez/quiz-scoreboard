@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Plus, X } from 'lucide-vue-next'
-import { Input } from '~/components/ui/input'
+import { computed, ref } from 'vue'
+import { Minus, Plus } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
+import ConfirmDialog from '~/components/ConfirmDialog.vue'
+import { MAX_ROUNDS } from '~/composables/useGameSetupForm'
 import { useQuizStore } from '../stores/quiz'
 
 const props = defineProps<{
@@ -10,151 +11,83 @@ const props = defineProps<{
 }>()
 
 const quizStore = useQuizStore()
-const newRoundTitle = ref('')
-const error = ref('')
-const confirmingId = ref<string | null>(null)
+const isConfirmingRemove = ref(false)
+const isRemoving = ref(false)
+
+const rounds = computed(() => quizStore.currentGame?.rounds ?? [])
+const lastRound = computed(() => rounds.value[rounds.value.length - 1])
+
+function lastRoundHasScores(): boolean {
+  const roundId = lastRound.value.id
+  return (quizStore.currentGame?.teams ?? []).some((team) => (team.scores[roundId] ?? 0) !== 0)
+}
 
 function addRound(): void {
-  if (!newRoundTitle.value.trim()) {
-    error.value = 'Введите название раунда.'
+  quizStore.addRound(`Раунд ${rounds.value.length + 1}`)
+}
+
+function requestRemove(): void {
+  if (lastRoundHasScores()) {
+    isConfirmingRemove.value = true
     return
   }
 
-  quizStore.addRound(newRoundTitle.value)
-  newRoundTitle.value = ''
-  error.value = ''
+  quizStore.deleteRound(lastRound.value.id)
 }
 
-function updateTitle(roundId: string, value: string): void {
-  if (!value.trim()) {
-    error.value = 'Название раунда не может быть пустым.'
-    return
+async function confirmRemove(): Promise<void> {
+  isRemoving.value = true
+
+  try {
+    await quizStore.deleteRound(lastRound.value.id)
+  } finally {
+    isRemoving.value = false
+    isConfirmingRemove.value = false
   }
-
-  quizStore.renameRound(roundId, value)
-  error.value = ''
-}
-
-function updateOptionalNumber(
-  roundId: string,
-  field: 'maxScore' | 'questionsCount',
-  value: string
-): void {
-  quizStore.updateRoundSettings(roundId, {
-    [field]: value === '' ? null : Math.max(0, Number(value.replace(',', '.')))
-  })
-}
-
-function requestDelete(roundId: string): void {
-  confirmingId.value = roundId
-}
-
-function cancelDelete(): void {
-  confirmingId.value = null
-}
-
-function confirmDelete(roundId: string): void {
-  quizStore.deleteRound(roundId)
-  confirmingId.value = null
 }
 </script>
 
 <template>
   <section class="space-y-4">
-    <header class="flex items-baseline justify-between gap-3 border-b border-rule-strong pb-2">
-      <h2 class="font-display text-xl font-medium">Раунды</h2>
-      <span class="eyebrow text-muted-foreground">
-        {{ quizStore.currentGame?.rounds.length ?? 0 }}
-      </span>
-    </header>
+    <div class="border-b border-rule-strong pb-2">
+      <h2 id="rounds-label" class="eyebrow text-muted-foreground">Раунды</h2>
+    </div>
 
-    <div v-if="!props.readOnly" class="flex gap-2">
-      <Input
-        v-model="newRoundTitle"
-        placeholder="Название нового раунда"
-        @keyup.enter="addRound"
-      />
-      <Button type="button" variant="outline" @click="addRound">
-        <Plus class="size-4" />
-        Добавить
+    <div class="flex items-center gap-4" role="group" aria-labelledby="rounds-label">
+      <Button
+        v-if="!props.readOnly"
+        type="button"
+        variant="outline"
+        class="size-12"
+        :disabled="rounds.length <= 1 || quizStore.isLoading"
+        aria-label="Убрать последний раунд"
+        @click="requestRemove"
+      >
+        <Minus class="size-5" />
+      </Button>
+      <output class="w-16 text-center font-display text-5xl font-medium tabular-nums" aria-live="polite">
+        {{ rounds.length }}
+      </output>
+      <Button
+        v-if="!props.readOnly"
+        type="button"
+        variant="outline"
+        class="size-12"
+        :disabled="rounds.length >= MAX_ROUNDS || quizStore.isLoading"
+        aria-label="Добавить раунд"
+        @click="addRound"
+      >
+        <Plus class="size-5" />
       </Button>
     </div>
 
-    <ul class="divide-y divide-rule">
-      <li
-        v-for="(round, index) in quizStore.currentGame?.rounds"
-        :key="round.id"
-        class="grid gap-3 py-4 md:grid-cols-[2.5rem_minmax(0,1fr)_5rem_5rem_auto] md:items-center"
-      >
-        <span class="font-display text-base tabular-nums text-muted-foreground">
-          {{ index + 1 }}
-        </span>
-
-        <input
-          :value="round.title"
-          aria-label="Название раунда"
-          :disabled="props.readOnly"
-          class="editable font-display text-lg leading-tight"
-          @blur="updateTitle(round.id, ($event.target as HTMLInputElement).value)"
-          @keydown.enter="($event.target as HTMLInputElement).blur()"
-        >
-
-        <label class="flex items-baseline gap-2 text-sm text-muted-foreground">
-          <span class="eyebrow-tight">Макс</span>
-          <input
-            :value="round.maxScore ?? ''"
-            type="text"
-            inputmode="decimal"
-            :disabled="props.readOnly"
-            class="editable w-12 text-right font-display tabular-nums"
-            @blur="updateOptionalNumber(round.id, 'maxScore', ($event.target as HTMLInputElement).value)"
-          >
-        </label>
-
-        <label class="flex items-baseline gap-2 text-sm text-muted-foreground">
-          <span class="eyebrow-tight">Вопросы</span>
-          <input
-            :value="round.questionsCount ?? ''"
-            type="number"
-            min="0"
-            :disabled="props.readOnly"
-            class="editable w-12 text-right font-display tabular-nums"
-            @blur="updateOptionalNumber(round.id, 'questionsCount', ($event.target as HTMLInputElement).value)"
-          >
-        </label>
-
-        <div v-if="!props.readOnly" class="flex items-center justify-end gap-3 text-sm">
-          <template v-if="confirmingId !== round.id">
-            <button
-              type="button"
-              class="text-muted-foreground transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="(quizStore.currentGame?.rounds.length ?? 0) <= 1"
-              aria-label="Удалить раунд"
-              @click="requestDelete(round.id)"
-            >
-              Удалить
-            </button>
-          </template>
-          <template v-else>
-            <button
-              type="button"
-              class="font-medium text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
-              @click="confirmDelete(round.id)"
-            >
-              Подтвердить
-            </button>
-            <button
-              type="button"
-              class="inline-flex items-center text-muted-foreground hover:text-foreground"
-              @click="cancelDelete"
-            >
-              <X class="size-3.5" />
-            </button>
-          </template>
-        </div>
-      </li>
-    </ul>
-
-    <p v-if="error" class="text-sm text-primary">{{ error }}</p>
+    <ConfirmDialog
+      v-model:open="isConfirmingRemove"
+      :title="`Удалить «${lastRound?.title ?? ''}»?`"
+      description="В этом раунде уже есть очки, они пропадут."
+      confirm-label="Да, удалить"
+      :pending="isRemoving"
+      @confirm="confirmRemove"
+    />
   </section>
 </template>

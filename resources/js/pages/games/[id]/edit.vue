@@ -50,7 +50,7 @@ watch(
         {{ quizStore.error }}
       </p>
 
-      <div class="grid gap-12 lg:grid-cols-2">
+      <div class="flex flex-col gap-12">
         <TeamsEditor :read-only="isFinished" />
         <RoundsEditor :read-only="isFinished" />
       </div>

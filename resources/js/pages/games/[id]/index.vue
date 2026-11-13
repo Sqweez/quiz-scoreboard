@@ -2,15 +2,8 @@
 import { Link, router } from '@inertiajs/vue3'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ArrowLeft, Check, Copy, Pencil } from 'lucide-vue-next'
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogTitle
-} from '~/components/ui/alert-dialog'
 import { Button } from '~/components/ui/button'
-import { Spinner } from '~/components/ui/spinner'
+import ConfirmDialog from '~/components/ConfirmDialog.vue'
 import ScoreTable from '~/components/ScoreTable.vue'
 import { useResultsClipboard } from '~/composables/useResultsClipboard'
 import { useQuizStore } from '~/stores/quiz'
@@ -271,58 +264,24 @@ function pluralize(count: number, one: string, few: string, many: string): strin
 
       <ScoreTable :read-only="isFinished" />
 
-      <AlertDialog v-model:open="isConfirmingFinish">
-        <AlertDialogContent>
-          <AlertDialogTitle class="font-display text-2xl font-medium">
-            Завершить игру?
-          </AlertDialogTitle>
-          <AlertDialogDescription class="text-sm text-muted-foreground">
-            После завершения очки больше нельзя будет менять.
-          </AlertDialogDescription>
-          <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <AlertDialogCancel as-child>
-              <Button variant="outline" size="lg" :disabled="isFinishing">
-                Отмена
-              </Button>
-            </AlertDialogCancel>
-            <Button
-              size="lg"
-              :disabled="isFinishing || quizStore.isSavingScores"
-              @click="confirmFinish"
-            >
-              <Spinner v-if="isFinishing" />
-              Да, завершить
-            </Button>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        v-model:open="isConfirmingFinish"
+        title="Завершить игру?"
+        description="После завершения очки больше нельзя будет менять."
+        confirm-label="Да, завершить"
+        :pending="isFinishing"
+        :disabled="quizStore.isSavingScores"
+        @confirm="confirmFinish"
+      />
 
-      <AlertDialog v-model:open="isConfirmingDelete">
-        <AlertDialogContent>
-          <AlertDialogTitle class="font-display text-2xl font-medium">
-            Удалить игру?
-          </AlertDialogTitle>
-          <AlertDialogDescription class="text-sm text-muted-foreground">
-            Игра и все очки будут удалены навсегда.
-          </AlertDialogDescription>
-          <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <AlertDialogCancel as-child>
-              <Button variant="outline" size="lg" :disabled="isDeleting">
-                Отмена
-              </Button>
-            </AlertDialogCancel>
-            <Button
-              variant="destructive"
-              size="lg"
-              :disabled="isDeleting"
-              @click="confirmDelete"
-            >
-              <Spinner v-if="isDeleting" />
-              Да, удалить
-            </Button>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        v-model:open="isConfirmingDelete"
+        title="Удалить игру?"
+        description="Игра и все очки будут удалены навсегда."
+        confirm-label="Да, удалить"
+        :pending="isDeleting"
+        @confirm="confirmDelete"
+      />
 
       <footer class="flex flex-wrap items-center justify-end gap-4 border-t border-rule pt-6 text-sm">
         <button

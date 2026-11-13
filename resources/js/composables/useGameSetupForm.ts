@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { Game } from '~/lib/quiz'
 
 export type DraftTeam = {
@@ -6,23 +6,10 @@ export type DraftTeam = {
   name: string
 }
 
-export type DraftRound = {
-  id: string
-  title: string
-  maxScore: string
-  questionsCount: string
-}
-
-type GameSetupRound = {
-  title: string
-  maxScore: number | null
-  questionsCount: number | null
-}
-
 type CreateGamePayload = {
   title: string
   teamNames: string[]
-  rounds: GameSetupRound[]
+  rounds: Array<{ title: string }>
 }
 
 type UseGameSetupFormOptions = {
@@ -30,42 +17,97 @@ type UseGameSetupFormOptions = {
   navigateToGame: (game: Game) => Promise<unknown> | unknown
 }
 
+export const MIN_ROUNDS = 1
+export const MAX_ROUNDS = 30
+const DEFAULT_ROUNDS = 7
+
 export function useGameSetupForm(options: UseGameSetupFormOptions) {
-  const title = ref('Квиз')
-  const teamNames = ref<DraftTeam[]>([
-    { id: createDraftId(), name: 'Команда 1' },
-    { id: createDraftId(), name: 'Команда 2' }
-  ])
-  const rounds = ref<DraftRound[]>([
-    { id: createDraftId(), title: 'Раунд 1', maxScore: '', questionsCount: '' },
-    { id: createDraftId(), title: 'Раунд 2', maxScore: '', questionsCount: '' }
-  ])
+  const title = ref('')
+  const teams = ref<DraftTeam[]>([createDraftTeam(), createDraftTeam()])
+  const roundsCount = ref(DEFAULT_ROUNDS)
   const error = ref('')
   const isSubmitting = ref(false)
+  const showErrors = ref(false)
 
-  function addTeam(): void {
-    teamNames.value.push({ id: createDraftId(), name: `Команда ${teamNames.value.length + 1}` })
+  const filledTeamNames = computed(() => teams.value.map((team) => team.name.trim()).filter(Boolean))
+
+  const titleError = computed(() => title.value.trim() ? '' : 'Введите название игры.')
+
+  const duplicateTeamIds = computed(() => {
+    const seen = new Set<string>()
+    const duplicates = new Set<string>()
+
+    for (const team of teams.value) {
+      const key = team.name.trim().toLocaleLowerCase('ru')
+
+      if (!key) {
+        continue
+      }
+
+      if (seen.has(key)) {
+        duplicates.add(team.id)
+      }
+
+      seen.add(key)
+    }
+
+    return duplicates
+  })
+
+  const teamsError = computed(() => {
+    if (filledTeamNames.value.length < 1) {
+      return 'Добавьте хотя бы одну команду.'
+    }
+
+    if (duplicateTeamIds.value.size > 0) {
+      return 'Названия команд не должны повторяться.'
+    }
+
+    return ''
+  })
+
+  const isValid = computed(() => !titleError.value && !teamsError.value)
+
+  function addTeam(afterId?: string, name = ''): DraftTeam {
+    const team = createDraftTeam(name)
+    const index = afterId ? teams.value.findIndex((item) => item.id === afterId) : -1
+
+    if (index === -1) {
+      teams.value.push(team)
+    } else {
+      teams.value.splice(index + 1, 0, team)
+    }
+
+    return team
   }
 
   function removeTeam(id: string): void {
-    if (teamNames.value.length > 1) {
-      teamNames.value = teamNames.value.filter((team) => team.id !== id)
+    if (teams.value.length > 1) {
+      teams.value = teams.value.filter((team) => team.id !== id)
     }
   }
 
-  function addRound(): void {
-    rounds.value.push({
-      id: createDraftId(),
-      title: `Раунд ${rounds.value.length + 1}`,
-      maxScore: '',
-      questionsCount: ''
-    })
+  // Splits pasted multi-line text into separate teams, starting at the given row.
+  function pasteTeams(id: string, text: string): DraftTeam | null {
+    const names = text.split(/\r?\n/).map((name) => name.trim()).filter(Boolean)
+    const team = teams.value.find((item) => item.id === id)
+
+    if (!team || names.length === 0) {
+      return null
+    }
+
+    team.name = names[0]
+    let last = team
+
+    for (const name of names.slice(1)) {
+      last = addTeam(last.id, name)
+    }
+
+    return last
   }
 
-  function removeRound(id: string): void {
-    if (rounds.value.length > 1) {
-      rounds.value = rounds.value.filter((round) => round.id !== id)
-    }
+  function setRoundsCount(value: number): void {
+    roundsCount.value = Math.min(MAX_ROUNDS, Math.max(MIN_ROUNDS, value))
   }
 
   async function createGame(): Promise<void> {
@@ -73,39 +115,21 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
       return
     }
 
-    const teamValues = teamNames.value.map((team) => team.name.trim()).filter(Boolean)
-    const roundValues = rounds.value
-      .map((round) => ({
-        title: round.title.trim(),
-        maxScore: parseOptionalNumber(round.maxScore),
-        questionsCount: parseOptionalNumber(round.questionsCount)
-      }))
-      .filter((round) => round.title)
+    showErrors.value = true
+    error.value = ''
 
-    if (!title.value.trim()) {
-      error.value = 'Введите название игры.'
-      return
-    }
-
-    if (teamValues.length < 1 || teamValues.length !== teamNames.value.length) {
-      error.value = 'Добавьте минимум одну команду и заполните все названия команд.'
-      return
-    }
-
-    if (roundValues.length < 1 || roundValues.length !== rounds.value.length) {
-      error.value = 'Добавьте минимум один раунд и заполните все названия раундов.'
+    if (!isValid.value) {
       return
     }
 
     try {
       isSubmitting.value = true
       const game = await options.createGame({
-        title: title.value,
-        teamNames: teamValues,
-        rounds: roundValues
+        title: title.value.trim(),
+        teamNames: filledTeamNames.value,
+        rounds: Array.from({ length: roundsCount.value }, (_, index) => ({ title: `Раунд ${index + 1}` }))
       })
       await options.navigateToGame(game)
-      error.value = ''
     } catch {
       error.value = 'Не удалось создать игру. Проверьте подключение и авторизацию.'
     } finally {
@@ -115,22 +139,23 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
 
   return {
     title,
-    teamNames,
-    rounds,
+    teams,
+    roundsCount,
+    filledTeamNames,
     error,
     isSubmitting,
+    showErrors,
+    titleError,
+    teamsError,
+    duplicateTeamIds,
     addTeam,
     removeTeam,
-    addRound,
-    removeRound,
+    pasteTeams,
+    setRoundsCount,
     createGame
   }
 }
 
-function parseOptionalNumber(value: string): number | null {
-  return value === '' ? null : Math.max(0, Number(String(value).replace(',', '.')))
-}
-
-function createDraftId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+function createDraftTeam(name = ''): DraftTeam {
+  return { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name }
 }

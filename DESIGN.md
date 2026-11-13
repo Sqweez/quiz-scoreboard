@@ -151,9 +151,12 @@ Key behaviors:
   ArrowUp/Down suppressed, wheel scroll blurs the field.
 
 ### TeamsEditor, RoundsEditor, GameSetupForm
-Editorial list rows on hairline dividers. Delete actions use an
-inline-confirm pattern (see Patterns below). The setup form on the
-new-game page uses the same row vocabulary.
+Editorial list rows on hairline dividers with always-visible inputs
+(`h-14`, 48px remove buttons) so empty forms read as forms on a phone.
+Teams: Enter moves to the next row / adds a team, pasting a multi-line
+list splits it into teams, duplicate names are rejected. Rounds have no
+user-facing names: a `−` / `+` stepper sets the count and titles are
+generated as «Раунд N».
 
 ### Eyebrow (utility class, not a component)
 Use `.eyebrow` or `.eyebrow-tight`. Do not wrap in a component; the
@@ -161,27 +164,14 @@ copy varies too much per surface and the class is one line.
 
 ## Patterns
 
-### Inline confirm for destructive actions
-Replaces `window.confirm()`. Implementation pattern (repeated in three
-spots: TeamsEditor, RoundsEditor, `games/[id]/index.vue`):
-
-```ts
-const confirmingId = ref<string | null>(null) // or boolean for single action
-
-function requestDelete(id: string) { confirmingId.value = id }
-function cancelDelete() { confirmingId.value = null }
-function confirmDelete(id: string) { /* do delete */; cancelDelete() }
-```
-
-Visuals: a quiet «Удалить» trigger swaps to two visible controls,
-«Подтвердить / Отмена» (or «Да, удалить / Отмена» for high-stakes
-destructive actions). Primary token applies a colored underline on the
-confirm button so the user can see what they're about to commit. Cancel
-is a quiet ghost with an X icon.
-
-Currently inlined per call site rather than abstracted: only three uses,
-each with slightly different copy. Promote to a `<InlineConfirm>`
-component if a fourth use lands.
+### Confirm dialog for consequential actions
+Replaces `window.confirm()` and the old inline confirm (its small text
+buttons were unreachable by finger). Use `~/components/ConfirmDialog.vue`
+(built on reka-ui AlertDialog via `~/components/ui/alert-dialog`):
+title as a question, one-line consequence, large «Отмена» / «Да, …»
+buttons stacked full-width on mobile. Used for finishing and deleting a
+game, and for removing a team or the last round when they already hold
+scores; removing an empty team or round happens immediately.
 
 ### Section header with eyebrow + h1 + hairline
 The repeating page header pattern across all top-level surfaces:

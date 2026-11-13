@@ -2,62 +2,74 @@ import { describe, expect, it, vi } from 'vitest'
 import { useGameSetupForm } from '../../resources/js/composables/useGameSetupForm'
 
 describe('useGameSetupForm', () => {
-  it('accepts a comma decimal separator for a round maximum', async () => {
-    const createGame = vi.fn().mockResolvedValue(undefined)
-    const form = useGameSetupForm({ createGame, navigateToGame: vi.fn() })
-    form.rounds.value[0].maxScore = '2,5'
-    await form.createGame()
-    expect(createGame.mock.calls[0][0].rounds[0].maxScore).toBe(2.5)
+  it('starts with an empty title and empty team rows', () => {
+    const form = useGameSetupForm({ createGame: vi.fn(), navigateToGame: vi.fn() })
+
+    expect(form.title.value).toBe('')
+    expect(form.teams.value.map((team) => team.name)).toEqual(['', ''])
   })
-  it('creates a game from valid draft values and navigates to the game page', async () => {
-    const createGame = vi.fn().mockResolvedValue(undefined)
+
+  it('creates a game with filled teams and generated round titles', async () => {
+    const createGame = vi.fn().mockResolvedValue({ id: 'game-1' })
     const navigateToGame = vi.fn()
     const form = useGameSetupForm({ createGame, navigateToGame })
 
     form.title.value = '  Final quiz  '
-    form.teamNames.value[0].name = ' Team A '
-    form.teamNames.value[1].name = 'Team B'
-    form.rounds.value[0].title = ' Round 1 '
-    form.rounds.value[0].maxScore = '10'
-    form.rounds.value[0].questionsCount = '5'
-    form.rounds.value[1].title = 'Round 2'
+    form.teams.value[0].name = ' Team A '
+    form.setRoundsCount(3)
 
     await form.createGame()
 
     expect(createGame).toHaveBeenCalledWith({
-      title: '  Final quiz  ',
-      teamNames: ['Team A', 'Team B'],
-      rounds: [
-        { title: 'Round 1', maxScore: 10, questionsCount: 5 },
-        { title: 'Round 2', maxScore: null, questionsCount: null }
-      ]
+      title: 'Final quiz',
+      teamNames: ['Team A'],
+      rounds: [{ title: 'Раунд 1' }, { title: 'Раунд 2' }, { title: 'Раунд 3' }]
     })
-    expect(navigateToGame).toHaveBeenCalledOnce()
-    expect(form.error.value).toBe('')
+    expect(navigateToGame).toHaveBeenCalledWith({ id: 'game-1' })
   })
 
-  it('keeps one team and one round when removing draft rows', () => {
+  it('blocks submit without a title or teams', async () => {
+    const createGame = vi.fn()
+    const form = useGameSetupForm({ createGame, navigateToGame: vi.fn() })
+
+    await form.createGame()
+
+    expect(form.titleError.value).toBe('Введите название игры.')
+    expect(form.teamsError.value).toBe('Добавьте хотя бы одну команду.')
+    expect(createGame).not.toHaveBeenCalled()
+  })
+
+  it('blocks submit with duplicate team names ignoring case', async () => {
+    const createGame = vi.fn()
+    const form = useGameSetupForm({ createGame, navigateToGame: vi.fn() })
+
+    form.title.value = 'Quiz'
+    form.teams.value[0].name = 'Сова'
+    form.teams.value[1].name = ' сова '
+    await form.createGame()
+
+    expect(form.duplicateTeamIds.value.has(form.teams.value[1].id)).toBe(true)
+    expect(createGame).not.toHaveBeenCalled()
+  })
+
+  it('splits a pasted list into separate teams', () => {
     const form = useGameSetupForm({ createGame: vi.fn(), navigateToGame: vi.fn() })
 
-    form.removeTeam(form.teamNames.value[0].id)
-    form.removeTeam(form.teamNames.value[0].id)
-    form.removeRound(form.rounds.value[0].id)
-    form.removeRound(form.rounds.value[0].id)
+    form.pasteTeams(form.teams.value[0].id, 'A\n\nB\r\nC\n')
 
-    expect(form.teamNames.value).toHaveLength(1)
-    expect(form.rounds.value).toHaveLength(1)
+    expect(form.teams.value.map((team) => team.name)).toEqual(['A', 'B', 'C', ''])
   })
 
-  it('reports validation errors before creating a game', () => {
-    const createGame = vi.fn()
-    const navigateToGame = vi.fn()
-    const form = useGameSetupForm({ createGame, navigateToGame })
+  it('clamps the rounds count and keeps at least one team row', () => {
+    const form = useGameSetupForm({ createGame: vi.fn(), navigateToGame: vi.fn() })
 
-    form.title.value = ' '
-    form.createGame()
+    form.setRoundsCount(0)
+    expect(form.roundsCount.value).toBe(1)
+    form.setRoundsCount(100)
+    expect(form.roundsCount.value).toBe(30)
 
-    expect(form.error.value).toBe('Введите название игры.')
-    expect(createGame).not.toHaveBeenCalled()
-    expect(navigateToGame).not.toHaveBeenCalled()
+    form.removeTeam(form.teams.value[0].id)
+    form.removeTeam(form.teams.value[0].id)
+    expect(form.teams.value).toHaveLength(1)
   })
 })

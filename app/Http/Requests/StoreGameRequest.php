@@ -11,8 +11,8 @@ class StoreGameRequest extends FormRequest
         return [
             'title' => ['required', 'string'],
             'teamNames' => ['required', 'array', 'min:1'],
-            'teamNames.*' => ['required', 'string'],
-            'rounds' => ['required', 'array', 'min:1'],
+            'teamNames.*' => ['required', 'string', 'distinct:ignore_case'],
+            'rounds' => ['required', 'array', 'min:1', 'max:30'],
             'rounds.*.title' => ['required', 'string'],
             'rounds.*.maxScore' => ['nullable', 'numeric'],
             'rounds.*.questionsCount' => ['nullable', 'integer', 'min:0'],

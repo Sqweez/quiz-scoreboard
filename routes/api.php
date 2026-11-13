@@ -9,7 +9,7 @@ Route::get('/health', function () {
     return ['status' => 'ok', 'database' => 'connected'];
 });
 
-Route::middleware('auth')->prefix('games')->controller(GameController::class)->group(function () {
+Route::middleware('auth:sanctum')->prefix('games')->controller(GameController::class)->group(function () {
     Route::get('/active', 'active');
     Route::get('/finished', 'finished');
     Route::get('/current', 'current');

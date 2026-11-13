@@ -41,7 +41,7 @@ function updateOptionalNumber(
   value: string
 ): void {
   quizStore.updateRoundSettings(roundId, {
-    [field]: value === '' ? null : Math.max(0, Number(value))
+    [field]: value === '' ? null : Math.max(0, Number(value.replace(',', '.')))
   })
 }
 
@@ -103,8 +103,8 @@ function confirmDelete(roundId: string): void {
           <span class="eyebrow-tight">Макс</span>
           <input
             :value="round.maxScore ?? ''"
-            type="number"
-            min="0"
+            type="text"
+            inputmode="decimal"
             :disabled="props.readOnly"
             class="editable w-12 text-right font-display tabular-nums"
             @blur="updateOptionalNumber(round.id, 'maxScore', ($event.target as HTMLInputElement).value)"

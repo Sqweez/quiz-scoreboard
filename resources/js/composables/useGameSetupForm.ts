@@ -128,7 +128,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
 }
 
 function parseOptionalNumber(value: string): number | null {
-  return value === '' ? null : Math.max(0, Number(value))
+  return value === '' ? null : Math.max(0, Number(String(value).replace(',', '.')))
 }
 
 function createDraftId(): string {

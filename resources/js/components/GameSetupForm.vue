@@ -104,7 +104,7 @@ const {
           >
           <label class="flex items-baseline gap-2 text-sm text-muted-foreground">
             <span class="eyebrow-tight">Макс</span>
-            <Input v-model="round.maxScore" type="number" min="0" class="h-8 w-16" />
+            <Input v-model="round.maxScore" inputmode="decimal" class="h-8 w-16" />
           </label>
           <label class="flex items-baseline gap-2 text-sm text-muted-foreground">
             <span class="eyebrow-tight">Вопросы</span>

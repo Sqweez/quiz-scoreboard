@@ -43,6 +43,8 @@ describe('sortTeamsByScore', () => {
     expect(normalizeScoreInput('bad', {})).toBe(0)
     expect(normalizeScoreInput(-1, {})).toBe(0)
     expect(normalizeScoreInput('1.5', {})).toBe(1.5)
+    expect(normalizeScoreInput('1,5', {})).toBe(1.5)
+    expect(normalizeScoreInput('1,', {})).toBe(1)
     expect(normalizeScoreInput(3, { maxScore: 2.5 })).toBe(2.5)
   })
 

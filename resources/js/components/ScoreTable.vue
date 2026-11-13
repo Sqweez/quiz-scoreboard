@@ -21,16 +21,18 @@ type ActiveContext = {
 }
 
 const activeContext = ref<ActiveContext | null>(null)
+const scoreDrafts = ref<Record<string, string>>({})
 let scoreBlurTimer: ReturnType<typeof setTimeout> | null = null
 let contextClearTimer: ReturnType<typeof setTimeout> | null = null
 
 function updateScore(team: Team, round: Round, event: Event): void {
   const target = event.target as HTMLInputElement
+  scoreDrafts.value[`${team.id}:${round.id}`] = target.value
   quizStore.updateTeamScore(team.id, round.id, target.value)
 }
 
-function scoreValue(team: Team, roundId: string): number {
-  return team.scores[roundId] ?? 0
+function scoreValue(team: Team, roundId: string): string | number {
+  return scoreDrafts.value[`${team.id}:${roundId}`] ?? team.scores[roundId] ?? 0
 }
 
 function handleScoreFocus(
@@ -62,7 +64,8 @@ function handleScoreFocus(
   }
 }
 
-function handleScoreBlur(): void {
+function handleScoreBlur(team: Team, round: Round): void {
+  delete scoreDrafts.value[`${team.id}:${round.id}`]
   releaseCurrentOrder()
 
   if (scoreBlurTimer) {
@@ -234,17 +237,15 @@ onBeforeUnmount(() => {
             >
               <input
                 class="peer ml-auto block h-10 w-full max-w-16 rounded-none border-0 border-b border-rule bg-transparent px-1 text-right font-display text-xl tabular-nums text-foreground/85 outline-none transition-colors placeholder:text-muted-foreground/40 hover:border-rule-strong hover:text-foreground focus:border-primary focus:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                type="number"
-                inputmode="numeric"
-                min="0"
-                :max="round.maxScore ?? undefined"
+                type="text"
+                inputmode="decimal"
                 :value="scoreValue(team, round.id)"
                 :disabled="props.readOnly"
                 :aria-label="`Баллы команды ${team.name} в раунде ${round.title}`"
                 placeholder="0"
                 @focus="handleScoreFocus(team, round, roundIndex, $event)"
                 @input="updateScore(team, round, $event)"
-                @blur="handleScoreBlur"
+                @blur="handleScoreBlur(team, round)"
                 @keydown="handleScoreKeydown"
                 @wheel="preventWheelStep"
               >

@@ -29,7 +29,9 @@ if [[ -L current ]]; then
 fi
 "${compose[@]}" up -d --wait --wait-timeout 120 postgres
 "${compose[@]}" run --rm -T --no-deps app php artisan migrate --force
-"${compose[@]}" up -d --wait --wait-timeout 120
+"${compose[@]}" up -d --wait --wait-timeout 120 postgres app nginx
+# Scheduler has no healthcheck, so --wait would fail on it.
+"${compose[@]}" up -d scheduler
 curl --fail --silent --show-error http://127.0.0.1:8087/api/health
 if [[ -L current && $(readlink current) != "releases/$release" ]]; then
   ln -sfn "$(readlink current)" previous

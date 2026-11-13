@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\GameStatus;
 use App\Http\Requests\StoreGameRequest;
 use App\Http\Requests\StoreRoundRequest;
 use App\Http\Requests\TeamRequest;
@@ -9,12 +10,14 @@ use App\Http\Requests\UpdateGameRequest;
 use App\Http\Requests\UpdateRoundRequest;
 use App\Http\Requests\UpdateScoreRequest;
 use App\Http\Requests\UpdateScoresRequest;
+use App\Http\Resources\GameResource;
 use App\Http\Resources\GameSummaryResource;
 use App\Models\Game;
 use App\Models\Round;
 use App\Models\Team;
 use App\Services\QuizService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -24,35 +27,35 @@ class GameController extends Controller
 
     public function active(Request $request): AnonymousResourceCollection
     {
-        return GameSummaryResource::collection($this->summaries($request)->where('status', '!=', 'finished')
+        return GameSummaryResource::collection($this->summaries($request)->where('status', '!=', GameStatus::Finished)
             ->orderByDesc('updated_at')->orderBy('id')->get());
     }
 
     public function finished(Request $request): AnonymousResourceCollection
     {
-        return GameSummaryResource::collection($this->summaries($request)->where('status', 'finished')
+        return GameSummaryResource::collection($this->summaries($request)->where('status', GameStatus::Finished)
             ->orderByDesc('finished_at')->orderBy('id')->paginate(15));
     }
 
-    public function current(Request $request)
+    public function current(Request $request): GameResource|JsonResponse
     {
         $game = Game::where('user_id', $request->user()->id)->orderByDesc('updated_at')->first();
-        return response()->json($game ? $this->quiz->snapshot($game) : null);
+        return $game ? new GameResource($game) : response()->json(null);
     }
 
-    public function show(Game $game): array
+    public function show(Game $game): GameResource
     {
-        return $this->quiz->snapshot($game);
+        return new GameResource($game);
     }
 
-    public function store(StoreGameRequest $request): array
+    public function store(StoreGameRequest $request): GameResource
     {
-        return $this->quiz->create($request->user()->id, $request->validated());
+        return new GameResource($this->quiz->create($request->user()->id, $request->validated()));
     }
 
-    public function update(UpdateGameRequest $request, Game $game): array
+    public function update(UpdateGameRequest $request, Game $game): GameResource
     {
-        return $this->quiz->change($game, fn (Game $game) => $game->title = $request->validated('title'));
+        return new GameResource($this->quiz->change($game, fn (Game $game) => $game->title = $request->validated('title')));
     }
 
     public function destroy(Game $game): array
@@ -61,49 +64,49 @@ class GameController extends Controller
         return ['ok' => true];
     }
 
-    public function finish(Game $game): array
+    public function finish(Game $game): GameResource
     {
-        return $this->quiz->change($game, fn (Game $game) => $game->finish());
+        return new GameResource($this->quiz->change($game, fn (Game $game) => $game->finish()));
     }
 
-    public function addTeam(TeamRequest $request, Game $game): array
+    public function addTeam(TeamRequest $request, Game $game): GameResource
     {
-        return $this->quiz->change($game, fn (Game $game) => $this->quiz->addTeam($game, $request->validated('name')));
+        return new GameResource($this->quiz->change($game, fn (Game $game) => $this->quiz->addTeam($game, $request->validated('name'))));
     }
 
-    public function renameTeam(TeamRequest $request, Game $game, Team $team): array
+    public function renameTeam(TeamRequest $request, Game $game, Team $team): GameResource
     {
-        return $this->quiz->change($game, fn () => $team->update($request->validated()));
+        return new GameResource($this->quiz->change($game, fn () => $team->update($request->validated())));
     }
 
-    public function deleteTeam(Game $game, Team $team): array
+    public function deleteTeam(Game $game, Team $team): GameResource
     {
-        return $this->quiz->change($game, fn (Game $game) => $this->quiz->deleteTeam($game, $team));
+        return new GameResource($this->quiz->change($game, fn (Game $game) => $this->quiz->deleteTeam($game, $team)));
     }
 
-    public function addRound(StoreRoundRequest $request, Game $game): array
+    public function addRound(StoreRoundRequest $request, Game $game): GameResource
     {
-        return $this->quiz->change($game, fn (Game $game) => $this->quiz->addRound($game, $request->validated('title')));
+        return new GameResource($this->quiz->change($game, fn (Game $game) => $this->quiz->addRound($game, $request->validated('title'))));
     }
 
-    public function updateRound(UpdateRoundRequest $request, Game $game, Round $round): array
+    public function updateRound(UpdateRoundRequest $request, Game $game, Round $round): GameResource
     {
-        return $this->quiz->change($game, fn () => $this->quiz->updateRound($round, $request->validated()));
+        return new GameResource($this->quiz->change($game, fn () => $this->quiz->updateRound($round, $request->validated())));
     }
 
-    public function deleteRound(Game $game, Round $round): array
+    public function deleteRound(Game $game, Round $round): GameResource
     {
-        return $this->quiz->change($game, fn (Game $game) => $this->quiz->deleteRound($game, $round));
+        return new GameResource($this->quiz->change($game, fn (Game $game) => $this->quiz->deleteRound($game, $round)));
     }
 
-    public function scores(UpdateScoresRequest $request, Game $game): array
+    public function scores(UpdateScoresRequest $request, Game $game): GameResource
     {
-        return $this->quiz->change($game, fn (Game $game) => $this->quiz->scores($game, $request->validated('updates')));
+        return new GameResource($this->quiz->change($game, fn (Game $game) => $this->quiz->scores($game, $request->validated('updates'))));
     }
 
-    public function score(UpdateScoreRequest $request, Game $game): array
+    public function score(UpdateScoreRequest $request, Game $game): GameResource
     {
-        return $this->quiz->change($game, fn (Game $game) => $this->quiz->scores($game, [$request->validated()]));
+        return new GameResource($this->quiz->change($game, fn (Game $game) => $this->quiz->scores($game, [$request->validated()])));
     }
 
     private function summaries(Request $request): Builder

@@ -178,6 +178,6 @@ class QuizTest extends TestCase
         return $this->postJson('/api/games', [
             'title' => 'Quiz', 'teamNames' => ['Alpha', 'Beta'],
             'rounds' => [['title' => 'First', 'maxScore' => 10, 'questionsCount' => 5]],
-        ])->assertOk()->assertJsonStructure(['id', 'status', 'statusLabel', 'statusActionLabel', 'teams', 'rounds', 'createdAt', 'updatedAt'])->json();
+        ])->assertCreated()->assertJsonStructure(['id', 'status', 'statusLabel', 'statusActionLabel', 'teams', 'rounds', 'createdAt', 'updatedAt'])->json();
     }
 }

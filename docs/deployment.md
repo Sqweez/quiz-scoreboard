@@ -54,6 +54,23 @@ digest. Alpine-вариант не проходит `initdb` на этом VPS �
 `libseccomp 2.3.1`: запись завершается `Operation not permitted`. Debian-вариант
 проверен на самом VPS со стандартным seccomp; отключать защиту не требуется.
 
+## Laravel Scheduler
+
+Контейнер `scheduler` использует тот же образ коммита и окружение, что `app`,
+и запускает `php artisan schedule:work --no-interaction`. Он автоматически
+запускается с Compose и обновляется при деплое. Расписание задаётся в
+`routes/console.php`; сейчас запланированных задач нет. Для Laravel не нужна
+дополнительная запись в cron VPS. Бэкапы остаются в `/etc/cron.d/quiz-backup`.
+Healthcheck PHP-FPM в scheduler отключён, поскольку этот контейнер выполняет
+CLI-команду. Docker перезапускает его при завершении процесса.
+
+```sh
+docker compose -p quiz-scoreboard --env-file .env -f current/compose.production.yaml logs --tail=100 scheduler
+docker compose -p quiz-scoreboard --env-file .env -f current/compose.production.yaml exec scheduler php artisan schedule:list
+```
+
+Для этих команд используются переменные из раздела диагностики ниже.
+
 Сертификат установлен через:
 
 ```sh

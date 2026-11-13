@@ -16,7 +16,7 @@ services:
     mem_limit: 64m
     logging: *logging
 
-  app:
+  app: &app
     image: ghcr.io/sqweez/quiz-scoreboard-app:${IMAGE_TAG:?Set IMAGE_TAG}
     env_file: ${APP_ENV_FILE:?Set APP_ENV_FILE}
     environment:
@@ -36,6 +36,14 @@ services:
     restart: unless-stopped
     mem_limit: 512m
     logging: *logging
+
+  scheduler:
+    <<: *app
+    command: [php, artisan, 'schedule:work', --no-interaction]
+    init: true
+    healthcheck:
+      disable: true
+    mem_limit: 256m
 
   postgres:
     image: postgres:17-bookworm@sha256:40865bc877a289da75963d97d72b59633f639fc5af7a4e856bfa3714cae5b536

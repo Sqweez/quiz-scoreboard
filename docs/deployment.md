@@ -38,7 +38,7 @@ Secrets сохранены `SSH_KEY`, `SSH_KNOWN_HOSTS`, `SSH_HOST`, `SSH_USER`.
 - `/srv/quiz/current`, `/srv/quiz/previous`: ссылки на успешные выпуски.
 - `/srv/quiz/deploy.sh`, `/srv/quiz/backup.sh`: копии скриптов из
   `docker/production/`, устанавливаемые администратором, права 700.
-- `/srv/quiz/backups`: дампы PostgreSQL; хранение 14 дней.
+- `/srv/quiz/backups`: дампы PostgreSQL; хранение 3 суток.
 - `/etc/nginx/conf.d/quiz.conf`: отдельный конфиг только этого домена,
   исходник — `docker/production/quiz.nginx.conf`.
 - `/srv/quiz/tls`: сертификат и ключ; продление существующим cron `acme.sh`.

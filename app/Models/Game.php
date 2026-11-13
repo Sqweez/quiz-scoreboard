@@ -11,7 +11,7 @@ class Game extends Model
     use HasUuids;
 
     protected $guarded = [];
-    protected $dateFormat = 'Y-m-d H:i:s.v';
+    protected $dateFormat = 'Y-m-d H:i:s.vP';
 
     public function rounds(): HasMany
     {

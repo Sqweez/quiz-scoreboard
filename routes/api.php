@@ -1,12 +1,18 @@
 <?php
 
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\QuizPleaseController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', function () {
     DB::select('SELECT 1');
     return ['status' => 'ok', 'database' => 'connected'];
+});
+
+Route::middleware('auth:sanctum')->prefix('quizplease')->controller(QuizPleaseController::class)->group(function () {
+    Route::post('/login', 'login')->middleware('throttle:10,1');
+    Route::get('/game', 'game');
 });
 
 Route::middleware('auth:sanctum')->prefix('games')->controller(GameController::class)->group(function () {

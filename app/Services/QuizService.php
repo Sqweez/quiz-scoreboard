@@ -15,7 +15,10 @@ class QuizService
     public function create(string $userId, array $input): Game
     {
         return DB::transaction(function () use ($userId, $input) {
-            $game = Game::create(['user_id' => $userId, 'title' => $input['title'], 'status' => GameStatus::Draft]);
+            $game = Game::create([
+                'user_id' => $userId, 'title' => $input['title'], 'status' => GameStatus::Draft,
+                'external_id' => isset($input['externalId']) ? strtolower($input['externalId']) : null,
+            ]);
             foreach ($input['rounds'] as $position => $round) {
                 $game->rounds()->create([
                     'title' => $round['title'], 'position' => $position,

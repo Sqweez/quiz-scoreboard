@@ -72,4 +72,33 @@ describe('useGameSetupForm', () => {
     form.removeTeam(form.teams.value[0].id)
     expect(form.teams.value).toHaveLength(1)
   })
+
+  it('replaces teams on a repeated import, keeps rounds and sends the external id', async () => {
+    const createGame = vi.fn().mockResolvedValue({ id: 'game-1' })
+    const form = useGameSetupForm({ createGame, navigateToGame: vi.fn() })
+    const imported = { externalId: '01a19b42-0cc8-709f-8197-62881b0dbcdc', title: 'Квиз', teamNames: ['Совы', 'Ёжики'] }
+
+    form.setRoundsCount(4)
+    form.applyImport(imported)
+    form.applyImport(imported)
+    await form.createGame()
+
+    expect(form.teams.value.map((team) => team.name)).toEqual(['Совы', 'Ёжики'])
+    expect(createGame).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Квиз',
+      externalId: imported.externalId,
+      teamNames: ['Совы', 'Ёжики']
+    }))
+    expect(createGame.mock.calls[0][0].rounds).toHaveLength(4)
+  })
+
+  it('keeps existing teams when the import has no confirmed teams', () => {
+    const form = useGameSetupForm({ createGame: vi.fn(), navigateToGame: vi.fn() })
+
+    form.teams.value[0].name = 'Manual'
+    form.applyImport({ externalId: 'id', title: 'Квиз', teamNames: [] })
+
+    expect(form.title.value).toBe('Квиз')
+    expect(form.teams.value.map((team) => team.name)).toEqual(['Manual', ''])
+  })
 })

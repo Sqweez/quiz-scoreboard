@@ -8,6 +8,7 @@ export type DraftTeam = {
 
 type CreateGamePayload = {
   title: string
+  externalId?: string
   teamNames: string[]
   rounds: Array<{ title: string }>
 }
@@ -28,6 +29,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
   const error = ref('')
   const isSubmitting = ref(false)
   const showErrors = ref(false)
+  const externalId = ref<string | null>(null)
 
   const filledTeamNames = computed(() => teams.value.map((team) => team.name.trim()).filter(Boolean))
 
@@ -106,6 +108,17 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     return last
   }
 
+  // Fills the form from an external game. Teams are replaced, so a repeated import never duplicates them;
+  // rounds stay as the user set them.
+  function applyImport(input: { externalId: string, title: string, teamNames: string[] }): void {
+    externalId.value = input.externalId
+    title.value = input.title
+
+    if (input.teamNames.length > 0) {
+      teams.value = input.teamNames.map((name) => createDraftTeam(name))
+    }
+  }
+
   function setRoundsCount(value: number): void {
     roundsCount.value = Math.min(MAX_ROUNDS, Math.max(MIN_ROUNDS, value))
   }
@@ -126,6 +139,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
       isSubmitting.value = true
       const game = await options.createGame({
         title: title.value.trim(),
+        ...(externalId.value ? { externalId: externalId.value } : {}),
         teamNames: filledTeamNames.value,
         rounds: Array.from({ length: roundsCount.value }, (_, index) => ({ title: `Раунд ${index + 1}` }))
       })
@@ -141,6 +155,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     title,
     teams,
     roundsCount,
+    externalId,
     filledTeamNames,
     error,
     isSubmitting,
@@ -151,6 +166,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     addTeam,
     removeTeam,
     pasteTeams,
+    applyImport,
     setRoundsCount,
     createGame
   }

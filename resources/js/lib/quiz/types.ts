@@ -51,6 +51,7 @@ export type PaginatedResourceCollection<T> = ResourceCollection<T> & {
 
 export type CreateGameInput = {
   title: string
+  externalId?: string
   teamNames: string[]
   rounds: Array<{
     title: string

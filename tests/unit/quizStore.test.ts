@@ -5,7 +5,7 @@ import { http } from '../../resources/js/utils/http'
 
 vi.mock('../../resources/js/utils/http', () => ({ http: vi.fn(), getRequestMessage: (error: Error) => error.message }))
 
-import type { Game } from '#shared/quiz'
+import type { Game } from '~/lib/quiz'
 
 const SCORE_SAVE_DEBOUNCE_MS = 350
 const API_DELAY_MS = 2000

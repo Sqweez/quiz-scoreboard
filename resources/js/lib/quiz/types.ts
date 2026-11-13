@@ -28,6 +28,27 @@ export type Game = GameCore & {
   statusActionLabel: string
 }
 
+export type GameSummary = {
+  id: string
+  title: string
+  teamsCount: number
+  roundsCount: number
+  updatedAt: string
+  finishedAt: string | null
+}
+
+export type ResourceCollection<T> = {
+  data: T[]
+}
+
+export type PaginatedResourceCollection<T> = ResourceCollection<T> & {
+  meta: {
+    current_page: number
+    last_page: number
+    total: number
+  }
+}
+
 export type CreateGameInput = {
   title: string
   teamNames: string[]

@@ -2,18 +2,36 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreGameRequest;
+use App\Http\Requests\StoreRoundRequest;
+use App\Http\Requests\TeamRequest;
+use App\Http\Requests\UpdateGameRequest;
+use App\Http\Requests\UpdateRoundRequest;
+use App\Http\Requests\UpdateScoreRequest;
+use App\Http\Requests\UpdateScoresRequest;
+use App\Http\Resources\GameSummaryResource;
 use App\Models\Game;
+use App\Models\Round;
+use App\Models\Team;
 use App\Services\QuizService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class GameController extends Controller
 {
     public function __construct(private QuizService $quiz) {}
 
-    public function index(Request $request): array
+    public function active(Request $request): AnonymousResourceCollection
     {
-        return Game::where('user_id', $request->user()->id)->with(['rounds', 'teams.scores'])->orderByDesc('updated_at')->get()
-            ->map(fn ($game) => $this->quiz->snapshot($game))->all();
+        return GameSummaryResource::collection($this->summaries($request)->where('status', '!=', 'finished')
+            ->orderByDesc('updated_at')->orderBy('id')->get());
+    }
+
+    public function finished(Request $request): AnonymousResourceCollection
+    {
+        return GameSummaryResource::collection($this->summaries($request)->where('status', 'finished')
+            ->orderByDesc('finished_at')->orderBy('id')->paginate(15));
     }
 
     public function current(Request $request)
@@ -22,89 +40,76 @@ class GameController extends Controller
         return response()->json($game ? $this->quiz->snapshot($game) : null);
     }
 
-    public function show(Request $request, string $id): array
+    public function show(Game $game): array
     {
-        return $this->quiz->snapshot($this->quiz->owned($request->user()->id, $id));
+        return $this->quiz->snapshot($game);
     }
 
-    public function store(Request $request): array
+    public function store(StoreGameRequest $request): array
     {
-        $input = $request->validate([
-            'title' => ['required', 'string'],
-            'teamNames' => ['required', 'array', 'min:1'], 'teamNames.*' => ['required', 'string'],
-            'rounds' => ['required', 'array', 'min:1'], 'rounds.*.title' => ['required', 'string'],
-            'rounds.*.maxScore' => ['nullable', 'numeric'],
-            'rounds.*.questionsCount' => ['nullable', 'integer', 'min:0'],
-        ]);
-        return $this->quiz->create($request->user()->id, $input);
+        return $this->quiz->create($request->user()->id, $request->validated());
     }
 
-    public function update(Request $request, string $id): array
+    public function update(UpdateGameRequest $request, Game $game): array
     {
-        $input = $request->validate(['title' => ['required', 'string']]);
-        return $this->quiz->change($request->user()->id, $id, fn ($game) => $game->title = $input['title']);
+        return $this->quiz->change($game, fn (Game $game) => $game->title = $request->validated('title'));
     }
 
-    public function destroy(Request $request, string $id): array
+    public function destroy(Game $game): array
     {
-        $this->quiz->owned($request->user()->id, $id)->delete();
+        $game->delete();
         return ['ok' => true];
     }
 
-    public function finish(Request $request, string $id): array
+    public function finish(Game $game): array
     {
-        return $this->quiz->change($request->user()->id, $id, fn ($game) => $game->status = 'finished');
+        return $this->quiz->change($game, fn (Game $game) => $game->finish());
     }
 
-    public function addTeam(Request $request, string $id): array
+    public function addTeam(TeamRequest $request, Game $game): array
     {
-        $input = $request->validate(['name' => ['required', 'string']]);
-        return $this->quiz->change($request->user()->id, $id, fn ($game) => $this->quiz->addTeam($game, $input['name']));
+        return $this->quiz->change($game, fn (Game $game) => $this->quiz->addTeam($game, $request->validated('name')));
     }
 
-    public function renameTeam(Request $request, string $id, string $teamId): array
+    public function renameTeam(TeamRequest $request, Game $game, Team $team): array
     {
-        $input = $request->validate(['name' => ['required', 'string']]);
-        return $this->quiz->change($request->user()->id, $id, fn ($game) => $game->teams()->findOrFail($teamId)->update($input));
+        return $this->quiz->change($game, fn () => $team->update($request->validated()));
     }
 
-    public function deleteTeam(Request $request, string $id, string $teamId): array
+    public function deleteTeam(Game $game, Team $team): array
     {
-        return $this->quiz->change($request->user()->id, $id, fn ($game) => $this->quiz->deleteTeam($game, $teamId));
+        return $this->quiz->change($game, fn (Game $game) => $this->quiz->deleteTeam($game, $team));
     }
 
-    public function addRound(Request $request, string $id): array
+    public function addRound(StoreRoundRequest $request, Game $game): array
     {
-        $input = $request->validate(['title' => ['required', 'string']]);
-        return $this->quiz->change($request->user()->id, $id, fn ($game) => $this->quiz->addRound($game, $input['title']));
+        return $this->quiz->change($game, fn (Game $game) => $this->quiz->addRound($game, $request->validated('title')));
     }
 
-    public function updateRound(Request $request, string $id, string $roundId): array
+    public function updateRound(UpdateRoundRequest $request, Game $game, Round $round): array
     {
-        $input = $request->validate([
-            'title' => ['sometimes', 'required', 'string'], 'maxScore' => ['sometimes', 'nullable', 'numeric'],
-            'questionsCount' => ['sometimes', 'nullable', 'integer', 'min:0'],
-        ]);
-        return $this->quiz->change($request->user()->id, $id, fn ($game) => $this->quiz->updateRound($game, $roundId, $input));
+        return $this->quiz->change($game, fn () => $this->quiz->updateRound($round, $request->validated()));
     }
 
-    public function deleteRound(Request $request, string $id, string $roundId): array
+    public function deleteRound(Game $game, Round $round): array
     {
-        return $this->quiz->change($request->user()->id, $id, fn ($game) => $this->quiz->deleteRound($game, $roundId));
+        return $this->quiz->change($game, fn (Game $game) => $this->quiz->deleteRound($game, $round));
     }
 
-    public function scores(Request $request, string $id): array
+    public function scores(UpdateScoresRequest $request, Game $game): array
     {
-        $input = $request->validate([
-            'updates' => ['present', 'array'], 'updates.*.teamId' => ['required', 'uuid'],
-            'updates.*.roundId' => ['required', 'uuid'], 'updates.*.score' => ['present', 'nullable', 'numeric'],
-        ]);
-        return $this->quiz->change($request->user()->id, $id, fn ($game) => $this->quiz->scores($game, $input['updates']));
+        return $this->quiz->change($game, fn (Game $game) => $this->quiz->scores($game, $request->validated('updates')));
     }
 
-    public function score(Request $request, string $id): array
+    public function score(UpdateScoreRequest $request, Game $game): array
     {
-        $input = $request->validate(['teamId' => ['required', 'uuid'], 'roundId' => ['required', 'uuid'], 'score' => ['present', 'nullable', 'numeric']]);
-        return $this->quiz->change($request->user()->id, $id, fn ($game) => $this->quiz->scores($game, [$input]));
+        return $this->quiz->change($game, fn (Game $game) => $this->quiz->scores($game, [$request->validated()]));
+    }
+
+    private function summaries(Request $request): Builder
+    {
+        return Game::where('user_id', $request->user()->id)
+            ->select(['id', 'title', 'updated_at', 'finished_at'])
+            ->withCount(['teams', 'rounds']);
     }
 }

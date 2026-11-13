@@ -12,6 +12,12 @@ class Game extends Model
 
     protected $guarded = [];
     protected $dateFormat = 'Y-m-d H:i:s.vP';
+    protected $casts = ['finished_at' => 'datetime'];
+
+    public function finish(): void
+    {
+        $this->forceFill(['status' => 'finished', 'finished_at' => now()])->save();
+    }
 
     public function rounds(): HasMany
     {

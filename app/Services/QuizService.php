@@ -11,11 +11,6 @@ use Illuminate\Support\Str;
 
 class QuizService
 {
-    public function owned(string $userId, string $id): Game
-    {
-        return Game::where('user_id', $userId)->findOrFail($id);
-    }
-
     public function snapshot(Game $game): array
     {
         $game->loadMissing(['rounds', 'teams.scores']);
@@ -63,10 +58,11 @@ class QuizService
         });
     }
 
-    public function change(string $userId, string $id, callable $operation): array
+    public function change(Game $game, callable $operation): array
     {
-        return DB::transaction(function () use ($userId, $id, $operation) {
-            $game = Game::where('user_id', $userId)->lockForUpdate()->findOrFail($id);
+        return DB::transaction(function () use ($game, $operation) {
+            // Re-read under a row lock so concurrent edits see the latest status.
+            $game = $game->newQuery()->lockForUpdate()->findOrFail($game->getKey());
             abort_if($game->status === 'finished', 409, 'Finished games are read-only.');
             $operation($game);
             $game->updated_at = now();
@@ -82,9 +78,8 @@ class QuizService
         $this->initializeScores($team, $game->rounds);
     }
 
-    public function deleteTeam(Game $game, string $id): void
+    public function deleteTeam(Game $game, Team $team): void
     {
-        $team = $game->teams()->findOrFail($id);
         abort_if($game->teams()->count() <= 1, 422, 'At least one team must remain.');
         $team->delete();
     }
@@ -98,9 +93,8 @@ class QuizService
         }
     }
 
-    public function updateRound(Game $game, string $id, array $input): void
+    public function updateRound(Round $round, array $input): void
     {
-        $round = $game->rounds()->findOrFail($id);
         $fields = [];
         foreach (['title' => 'title', 'maxScore' => 'max_score', 'questionsCount' => 'questions_count'] as $key => $column) {
             if (array_key_exists($key, $input)) {
@@ -113,9 +107,8 @@ class QuizService
         }
     }
 
-    public function deleteRound(Game $game, string $id): void
+    public function deleteRound(Game $game, Round $round): void
     {
-        $round = $game->rounds()->findOrFail($id);
         abort_if($game->rounds()->count() <= 1, 422, 'At least one round must remain.');
         $round->delete();
     }

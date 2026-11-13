@@ -18,7 +18,6 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY resources resources
-COPY shared shared
 COPY vite.config.ts tsconfig.json ./
 RUN npm run build
 

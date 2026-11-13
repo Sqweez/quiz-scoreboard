@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import type { Game } from '#shared/quiz'
+import type { Game } from '~/lib/quiz'
 
 export type DraftTeam = {
   id: string

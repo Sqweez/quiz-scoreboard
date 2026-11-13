@@ -3,10 +3,6 @@
 .env.*
 node_modules
 vendor
-.nuxt
-.output
-.data
-.cache
 .phpunit*
 public/build
 public/hot

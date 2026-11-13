@@ -209,7 +209,6 @@ function pluralize(count: number, one: string, few: string, many: string): strin
               v-model="titleDraft"
               type="text"
               class="editable font-display w-full text-4xl font-medium leading-tight tracking-tight lg:text-5xl"
-              :disabled="isFinished"
               :aria-invalid="Boolean(titleError)"
               @blur="commitTitle"
               @keydown="handleTitleKeydown"
@@ -240,12 +239,11 @@ function pluralize(count: number, one: string, few: string, many: string): strin
               {{ copyStatusText }}
             </span>
             <Link
-              v-if="!isFinished"
               :href="`/games/${quizStore.currentGame.id}/edit`"
               class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               <Pencil class="size-3.5" />
-              Команды и раунды
+              {{ isFinished ? 'Настройки игры' : 'Команды и раунды' }}
             </Link>
           </div>
         </div>

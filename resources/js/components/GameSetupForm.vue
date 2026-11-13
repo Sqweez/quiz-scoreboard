@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3'
-import { nextTick } from 'vue'
+import { nextTick, ref } from 'vue'
 import { Minus, Plus, X } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Spinner } from '~/components/ui/spinner'
+import QuizPleaseImport from '~/components/QuizPleaseImport.vue'
+import type { ExternalGame } from '~/composables/useQuizPleaseImport'
 import { MAX_ROUNDS, MIN_ROUNDS, useGameSetupForm } from '~/composables/useGameSetupForm'
 import { useQuizStore } from '~/stores/quiz'
 
@@ -12,6 +14,8 @@ const {
   title,
   teams,
   roundsCount,
+  externalId,
+  externalIdError,
   filledTeamNames,
   error,
   isSubmitting,
@@ -22,12 +26,24 @@ const {
   addTeam,
   removeTeam,
   pasteTeams,
+  applyImport,
   setRoundsCount,
   createGame
 } = useGameSetupForm({
   createGame: quizStore.createGame,
   navigateToGame: (game) => router.visit(`/games/${game.id}`)
 })
+
+const source = ref<'manual' | 'external'>('manual')
+
+function handleImported(game: ExternalGame): void {
+  // An already imported game is linked from the preview instead of being prepared for a duplicate.
+  if (game.existingGameId) {
+    return
+  }
+
+  applyImport({ externalId: game.externalId, title: game.title, teamNames: game.teams.map((team) => team.name) })
+}
 
 async function focusTeam(id: string): Promise<void> {
   await nextTick()
@@ -83,6 +99,29 @@ function handleTeamPaste(event: ClipboardEvent, id: string): void {
 
 <template>
   <form class="flex flex-col gap-12" novalidate @submit.prevent="createGame">
+    <section class="space-y-6">
+      <div class="flex gap-2" role="group" aria-label="Способ создания">
+        <Button
+          type="button"
+          :variant="source === 'manual' ? 'secondary' : 'ghost'"
+          :aria-pressed="source === 'manual'"
+          @click="source = 'manual'"
+        >
+          Вручную
+        </Button>
+        <Button
+          type="button"
+          :variant="source === 'external' ? 'secondary' : 'ghost'"
+          :aria-pressed="source === 'external'"
+          @click="source = 'external'"
+        >
+          Создать из внешней системы
+        </Button>
+      </div>
+
+      <QuizPleaseImport v-show="source === 'external'" @imported="handleImported" />
+    </section>
+
     <section class="space-y-3">
       <label for="game-title" class="eyebrow-tight block text-muted-foreground">
         Название игры
@@ -101,6 +140,26 @@ function handleTeamPaste(event: ClipboardEvent, id: string): void {
       >
       <p v-if="showErrors && titleError" class="text-sm text-primary">
         {{ titleError }}
+      </p>
+    </section>
+
+    <section class="space-y-3">
+      <label for="game-external-id" class="eyebrow-tight block text-muted-foreground">
+        ID игры в Квиз, плиз! — необязательно
+      </label>
+      <input
+        id="game-external-id"
+        v-model="externalId"
+        type="text"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="01a19b42-0cc8-709f-8197-62881b0dbcdc"
+        class="h-12 w-full border-0 border-b border-rule-strong bg-transparent font-mono text-base outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground"
+        :class="{ 'border-primary focus:border-primary': showErrors && externalIdError }"
+        :aria-invalid="showErrors && Boolean(externalIdError)"
+      >
+      <p v-if="showErrors && externalIdError" class="text-sm text-primary">
+        {{ externalIdError }}
       </p>
     </section>
 

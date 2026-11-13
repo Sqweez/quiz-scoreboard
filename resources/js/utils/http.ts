@@ -3,6 +3,13 @@ type RequestOptions = {
   body?: unknown
 }
 
+// Carries the HTTP status and the optional machine-readable reason sent by the server.
+export class HttpError extends Error {
+  constructor(message: string, readonly status: number, readonly reason?: string) {
+    super(message)
+  }
+}
+
 export async function http<T = void>(url: string, options: RequestOptions = {}): Promise<T> {
   const token = document.cookie.split('; ').find(cookie => cookie.startsWith('XSRF-TOKEN='))
   const response = await fetch(url, {
@@ -23,7 +30,7 @@ export async function http<T = void>(url: string, options: RequestOptions = {}):
   const data = await response.json()
 
   if (!response.ok) {
-    throw new Error(data.message)
+    throw new HttpError(data.message, response.status, data.reason)
   }
 
   return data as T

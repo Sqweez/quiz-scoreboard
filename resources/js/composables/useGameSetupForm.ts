@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import type { Game } from '~/lib/quiz'
+import { HttpError } from '~/utils/http'
 
 export type DraftTeam = {
   id: string
@@ -8,6 +9,7 @@ export type DraftTeam = {
 
 type CreateGamePayload = {
   title: string
+  externalId?: string
   teamNames: string[]
   rounds: Array<{ title: string }>
 }
@@ -20,6 +22,7 @@ type UseGameSetupFormOptions = {
 export const MIN_ROUNDS = 1
 export const MAX_ROUNDS = 30
 const DEFAULT_ROUNDS = 7
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function useGameSetupForm(options: UseGameSetupFormOptions) {
   const title = ref('')
@@ -28,6 +31,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
   const error = ref('')
   const isSubmitting = ref(false)
   const showErrors = ref(false)
+  const externalId = ref('')
 
   const filledTeamNames = computed(() => teams.value.map((team) => team.name.trim()).filter(Boolean))
 
@@ -66,7 +70,12 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     return ''
   })
 
-  const isValid = computed(() => !titleError.value && !teamsError.value)
+  const externalIdError = computed(() => {
+    const value = externalId.value.trim()
+    return value && !UUID_PATTERN.test(value) ? 'ID игры в Квиз, плиз! должен быть UUID.' : ''
+  })
+
+  const isValid = computed(() => !titleError.value && !teamsError.value && !externalIdError.value)
 
   function addTeam(afterId?: string, name = ''): DraftTeam {
     const team = createDraftTeam(name)
@@ -106,6 +115,17 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     return last
   }
 
+  // Fills the form from an external game. Teams are replaced, so a repeated import never duplicates them;
+  // rounds stay as the user set them.
+  function applyImport(input: { externalId: string, title: string, teamNames: string[] }): void {
+    externalId.value = input.externalId
+    title.value = input.title
+
+    if (input.teamNames.length > 0) {
+      teams.value = input.teamNames.map((name) => createDraftTeam(name))
+    }
+  }
+
   function setRoundsCount(value: number): void {
     roundsCount.value = Math.min(MAX_ROUNDS, Math.max(MIN_ROUNDS, value))
   }
@@ -126,12 +146,16 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
       isSubmitting.value = true
       const game = await options.createGame({
         title: title.value.trim(),
+        ...(externalId.value.trim() ? { externalId: externalId.value.trim() } : {}),
         teamNames: filledTeamNames.value,
         rounds: Array.from({ length: roundsCount.value }, (_, index) => ({ title: `Раунд ${index + 1}` }))
       })
       await options.navigateToGame(game)
-    } catch {
-      error.value = 'Не удалось создать игру. Проверьте подключение и авторизацию.'
+    } catch (requestError) {
+      // Validation messages (e.g. an already used external id) are actionable, so show them as is.
+      error.value = requestError instanceof HttpError && requestError.status === 422
+        ? requestError.message
+        : 'Не удалось создать игру. Проверьте подключение и авторизацию.'
     } finally {
       isSubmitting.value = false
     }
@@ -141,6 +165,8 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     title,
     teams,
     roundsCount,
+    externalId,
+    externalIdError,
     filledTeamNames,
     error,
     isSubmitting,
@@ -151,6 +177,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     addTeam,
     removeTeam,
     pasteTeams,
+    applyImport,
     setRoundsCount,
     createGame
   }

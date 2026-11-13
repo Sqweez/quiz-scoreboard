@@ -16,6 +16,7 @@ export type Team = {
 export type GameCore = {
   id: string
   title: string
+  externalId: string | null
   status: GameStatus
   rounds: Round[]
   teams: Team[]
@@ -51,6 +52,7 @@ export type PaginatedResourceCollection<T> = ResourceCollection<T> & {
 
 export type CreateGameInput = {
   title: string
+  externalId?: string
   teamNames: string[]
   rounds: Array<{
     title: string

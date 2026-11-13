@@ -20,6 +20,7 @@ class GameResource extends JsonResource
         return [
             'id' => $this->id,
             'title' => $this->title,
+            'externalId' => $this->external_id,
             'status' => $this->status,
             'statusLabel' => $this->status->label(),
             'statusActionLabel' => $this->status->actionLabel(),

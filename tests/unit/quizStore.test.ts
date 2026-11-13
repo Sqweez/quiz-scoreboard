@@ -210,6 +210,7 @@ function createGame(): Game {
   return {
     id: 'game-1',
     title: 'Квиз',
+    externalId: null,
     status: 'draft',
     statusLabel: 'Черновик',
     statusActionLabel: 'Завершить',

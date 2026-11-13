@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3'
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ArrowLeft } from 'lucide-vue-next'
 import TeamsEditor from '~/components/TeamsEditor.vue'
 import RoundsEditor from '~/components/RoundsEditor.vue'
@@ -10,6 +10,32 @@ const quizStore = useQuizStore()
 const props = defineProps<{ gameId: string }>()
 
 const isFinished = computed(() => quizStore.currentGame?.status === 'finished')
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const externalIdDraft = ref('')
+const externalIdError = ref('')
+
+watch(() => quizStore.currentGame?.externalId, (externalId) => {
+  externalIdDraft.value = externalId ?? ''
+}, { immediate: true })
+
+async function saveExternalId(): Promise<void> {
+  const value = externalIdDraft.value.trim()
+
+  if (value === (quizStore.currentGame?.externalId ?? '')) {
+    externalIdError.value = ''
+    return
+  }
+
+  if (value && !UUID_PATTERN.test(value)) {
+    externalIdError.value = 'ID игры в Квиз, плиз! должен быть UUID.'
+    return
+  }
+
+  externalIdError.value = ''
+  await quizStore.updateGameExternalId(value || null)
+  // A rejected value (e.g. already used) falls back to the saved one; the store shows the reason.
+  externalIdDraft.value = quizStore.currentGame?.externalId ?? ''
+}
 
 watch(
   () => props.gameId,
@@ -39,7 +65,7 @@ watch(
           {{ quizStore.currentGame.title }}
         </h1>
         <p v-if="isFinished" class="mt-3 text-sm text-muted-foreground">
-          Игра завершена. Редактирование закрыто.
+          Игра завершена: команды и раунды закрыты, ID игры в Квиз, плиз! можно изменить.
         </p>
       </header>
 
@@ -51,6 +77,30 @@ watch(
       </p>
 
       <div class="flex flex-col gap-12">
+        <section class="space-y-3">
+          <label for="game-external-id" class="eyebrow block text-muted-foreground">
+            ID игры в Квиз, плиз!
+          </label>
+          <input
+            id="game-external-id"
+            v-model="externalIdDraft"
+            type="text"
+            autocomplete="off"
+            spellcheck="false"
+            enterkeyhint="done"
+            placeholder="Не указан"
+            class="h-12 w-full border-0 border-b border-rule-strong bg-transparent font-mono text-base outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground"
+            :class="{ 'border-primary focus:border-primary': externalIdError }"
+            :aria-invalid="Boolean(externalIdError)"
+            @blur="saveExternalId"
+            @keydown.enter="($event.target as HTMLInputElement).blur()"
+          >
+          <p v-if="externalIdError" class="text-sm text-primary">{{ externalIdError }}</p>
+          <p v-else class="text-xs text-muted-foreground">
+            Сохраняется при выходе из поля. Оставьте пустым, чтобы отвязать игру.
+          </p>
+        </section>
+
         <TeamsEditor :read-only="isFinished" />
         <RoundsEditor :read-only="isFinished" />
       </div>

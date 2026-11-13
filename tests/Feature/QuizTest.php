@@ -39,7 +39,7 @@ class QuizTest extends TestCase
         $this->patchJson("$url/scores/bulk", ['updates' => [
             ['teamId' => $team, 'roundId' => $round, 'score' => 1],
         ]])->assertConflict();
-        $this->patchJson($url, ['title' => 'Forbidden'])->assertConflict();
+        $this->patchJson($url, ['title' => 'After finish'])->assertOk()->assertJsonPath('title', 'After finish');
         $this->deleteJson($url)->assertOk()->assertExactJson(['ok' => true]);
         $this->getJson($url)->assertNotFound();
     }

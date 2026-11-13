@@ -131,7 +131,7 @@ class QuizTest extends TestCase
     {
         $this->actingAs($this->user());
         $active = $this->createGame();
-        for ($i = 0; $i < 16; $i++) {
+        for ($i = 0; $i < 11; $i++) {
             $this->postJson("/api/games/{$this->createGame()['id']}/finish")->assertOk();
         }
 
@@ -142,13 +142,34 @@ class QuizTest extends TestCase
             ]]]);
 
         $this->getJson('/api/games/finished')->assertOk()
-            ->assertJsonCount(15, 'data')
+            ->assertJsonCount(10, 'data')
             ->assertJsonPath('meta.current_page', 1)
             ->assertJsonPath('meta.last_page', 2)
-            ->assertJsonPath('meta.total', 16)
+            ->assertJsonPath('meta.total', 11)
             ->assertJsonStructure(['data' => [['id', 'title', 'teamsCount', 'roundsCount', 'updatedAt', 'finishedAt']]]);
         $this->assertNotNull($this->getJson('/api/games/finished')->json('data.0.finishedAt'));
         $this->getJson('/api/games/finished?page=2')->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_finished_games_search_by_title_case_insensitively_and_literally(): void
+    {
+        $this->actingAs($this->user());
+        foreach (['Пятничный квиз', 'Субботний КВИЗ', '100% эрудит', 'Draft only'] as $title) {
+            $game = $this->createGame();
+            $this->patchJson("/api/games/{$game['id']}", ['title' => $title])->assertOk();
+            if ($title !== 'Draft only') {
+                $this->postJson("/api/games/{$game['id']}/finish")->assertOk();
+            }
+        }
+
+        $titles = fn (string $search) => array_column($this->getJson('/api/games/finished?search='.urlencode($search))->assertOk()->json('data'), 'title');
+
+        $this->assertEqualsCanonicalizing(['Пятничный квиз', 'Субботний КВИЗ'], $titles('квиз'));
+        $this->assertSame(['100% эрудит'], $titles('0%'));
+        $this->assertSame([], $titles('%'.'_'));
+        $this->assertSame([], $titles('Draft'));
+        $this->assertCount(3, $titles('  '));
+        $this->getJson('/api/games/finished?search='.str_repeat('a', 256))->assertUnprocessable();
     }
 
     public function test_stale_games_are_finished_at_their_last_update(): void

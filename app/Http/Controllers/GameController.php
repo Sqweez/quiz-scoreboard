@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\GameStatus;
+use App\Http\Requests\FinishedGamesRequest;
 use App\Http\Requests\StoreGameRequest;
 use App\Http\Requests\StoreRoundRequest;
 use App\Http\Requests\TeamRequest;
@@ -31,10 +32,14 @@ class GameController extends Controller
             ->orderByDesc('updated_at')->orderBy('id')->get());
     }
 
-    public function finished(Request $request): AnonymousResourceCollection
+    public function finished(FinishedGamesRequest $request): AnonymousResourceCollection
     {
+        $search = $request->validated('search');
+
         return GameSummaryResource::collection($this->summaries($request)->where('status', GameStatus::Finished)
-            ->orderByDesc('finished_at')->orderBy('id')->paginate(15));
+            // Escape LIKE wildcards so the search matches the typed text literally.
+            ->when($search, fn (Builder $query) => $query->where('title', 'ilike', '%'.addcslashes($search, '\\%_').'%'))
+            ->orderByDesc('finished_at')->orderBy('id')->paginate(10)->withQueryString());
     }
 
     public function current(Request $request): GameResource|JsonResponse

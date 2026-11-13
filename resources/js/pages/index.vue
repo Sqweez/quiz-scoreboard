@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3'
-import { computed, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, ArrowRight, LogIn, LogOut, Plus } from 'lucide-vue-next'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { ArrowLeft, ArrowRight, LogIn, LogOut, Plus, Search } from 'lucide-vue-next'
 import type { GameSummary, PaginatedResourceCollection, ResourceCollection } from '~/lib/quiz'
 import { Button } from '~/components/ui/button'
+import { Input } from '~/components/ui/input'
 import { Spinner } from '~/components/ui/spinner'
 import { useQuizStore } from '~/stores/quiz'
 import { getRequestMessage, http } from '~/utils/http'
@@ -18,7 +19,13 @@ const finishedPage = ref<PaginatedResourceCollection<GameSummary> | null>(null)
 const isLoading = ref(false)
 const isFinishedPageLoading = ref(false)
 const error = ref('')
-const hasGames = computed(() => activeGames.value.length > 0 || (finishedPage.value?.meta.total ?? 0) > 0)
+const search = ref('')
+// Unfiltered flag: an empty search result must not hide the section or the whole list.
+const hasFinishedGames = ref(false)
+const hasGames = computed(() => activeGames.value.length > 0 || hasFinishedGames.value)
+const SEARCH_DEBOUNCE_MS = 300
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+let finishedRequestId = 0
 const dateFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
 
 async function loadGames(): Promise<void> {
@@ -32,6 +39,7 @@ async function loadGames(): Promise<void> {
     ])
     activeGames.value = active.data
     finishedPage.value = finished
+    hasFinishedGames.value = finished.meta.total > 0
   } catch (requestError) {
     error.value = getRequestMessage(requestError)
   } finally {
@@ -40,21 +48,47 @@ async function loadGames(): Promise<void> {
 }
 
 async function loadFinishedPage(pageNumber: number): Promise<void> {
+  // Only the latest request may update the table when typing outpaces responses.
+  const requestId = ++finishedRequestId
+  const query = new URLSearchParams({ page: String(pageNumber) })
+
+  if (search.value.trim()) {
+    query.set('search', search.value.trim())
+  }
+
   isFinishedPageLoading.value = true
 
   try {
-    finishedPage.value = await http<PaginatedResourceCollection<GameSummary>>(`/api/games/finished?page=${pageNumber}`)
+    const result = await http<PaginatedResourceCollection<GameSummary>>(`/api/games/finished?${query}`)
+
+    if (requestId === finishedRequestId) {
+      finishedPage.value = result
+    }
   } catch (requestError) {
-    error.value = getRequestMessage(requestError)
+    if (requestId === finishedRequestId) {
+      error.value = getRequestMessage(requestError)
+    }
   } finally {
-    isFinishedPageLoading.value = false
+    if (requestId === finishedRequestId) {
+      isFinishedPageLoading.value = false
+    }
   }
 }
 
 function clearGames(): void {
+  clearTimeout(searchTimer)
   activeGames.value = []
   finishedPage.value = null
+  hasFinishedGames.value = false
+  search.value = ''
 }
+
+watch(search, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => loadFinishedPage(1), SEARCH_DEBOUNCE_MS)
+})
+
+onBeforeUnmount(() => clearTimeout(searchTimer))
 
 watch(
   user,
@@ -206,7 +240,7 @@ async function signOut(): Promise<void> {
         </ul>
       </section>
 
-      <section v-if="finishedPage && finishedPage.meta.total > 0" class="space-y-3">
+      <section v-if="finishedPage && hasFinishedGames" class="space-y-3">
         <div class="flex items-baseline justify-between gap-3 border-b border-rule-strong pb-2">
           <h2 class="eyebrow text-muted-foreground">
             Завершённые
@@ -215,7 +249,15 @@ async function signOut(): Promise<void> {
             {{ finishedPage.meta.total }}
           </span>
         </div>
-        <div class="overflow-x-auto" :class="{ 'opacity-60': isFinishedPageLoading }">
+        <label class="relative block max-w-sm">
+          <span class="sr-only">Поиск по названию</span>
+          <Search class="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input v-model="search" type="search" placeholder="Поиск по названию" class="pl-8" />
+        </label>
+        <p v-if="finishedPage.meta.total === 0" class="py-6 text-sm text-muted-foreground">
+          Ничего не найдено
+        </p>
+        <div v-else class="overflow-x-auto" :class="{ 'opacity-60': isFinishedPageLoading }">
           <table class="w-full border-collapse text-foreground">
             <thead>
               <tr class="border-b border-rule eyebrow-tight text-muted-foreground">

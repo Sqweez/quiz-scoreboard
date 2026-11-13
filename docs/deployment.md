@@ -1,114 +1,114 @@
-# Развёртывание на VPS
+# Production: quiz.ariesdev.kz
 
-## Окружение и первый запуск
+Сервер — `ssh-iron` (`root@affectionate-benz.194-4-56-226.plesk.page`).
+Рабочий каталог — `/srv/quiz`. Деплой повторяет схему `fitness-backend`:
+GitHub Actions → GHCR → SSH → Docker Compose. Plesk в деплое, настройке домена
+и продлении сертификата не участвует.
 
-Скопировать `.env.example` в `.env`, установить права `chmod 600 .env`,
-указать домен, длинный уникальный `DB_PASSWORD` и IP/CIDR доверенного
-reverse proxy. Пароли с символом `$` в dotenv заключать в одинарные кавычки.
-Не использовать `TRUSTED_PROXIES=*`: указывать адрес proxy в том виде,
-в котором Nginx/PHP видит его через Docker bridge. Его можно определить
-по access log Nginx при запросе через домен. На VPS с TLS-proxy на хосте
-обычно это gateway Docker-сети, а не публичный IP посетителя.
+## Автоматический выпуск
 
-```sh
-docker compose build
-docker compose run --rm --no-deps app php artisan key:generate --show
-```
+`.github/workflows/deploy.yml` запускается при push в `migrate/laravel-monolith`
+и `main`. Пока миграция проверяется, `main` остаётся со старым Nuxt-приложением.
+Ручной `workflow_dispatch` появится в интерфейсе после попадания workflow в
+основную ветку. Workflow проверяет frontend, TypeScript, сборку и PHP-тесты
+на синтетическом PostgreSQL, затем собирает два amd64-образа:
 
-Сохранить полученный ключ в приватный `APP_KEY`. Это секрет приложения;
-не публиковать его. Генерация с `--show` выводит ключ для записи в окружение,
-не изменяет `.env` внутри образа. Ключ не пересоздаётся при обновлении.
+- `ghcr.io/sqweez/quiz-scoreboard-app:<commit SHA>`
+- `ghcr.io/sqweez/quiz-scoreboard-nginx:<commit SHA>`
 
-```sh
-docker compose up -d postgres
-docker compose run --rm app php artisan migrate --force
-docker compose up -d
-docker compose ps
-curl --fail http://127.0.0.1:8087/api/health
-```
+На сервер передаются Compose и временный `GITHUB_TOKEN` для чтения GHCR.
+Регистрационные данные Docker хранятся во временном закрытом каталоге и
+удаляются при завершении. Отдельный SSH-ключ Actions ограничен командой
+`/srv/quiz/deploy.sh`; shell, forwarding и PTY для него запрещены. В GitHub
+Secrets сохранены `SSH_KEY`, `SSH_KNOWN_HOSTS`, `SSH_HOST`, `SSH_USER`.
+Ключ хоста получен через уже проверенное SSH-подключение.
 
-Nginx healthcheck может быть красным до применения migrations.
-Миграции выполняются отдельным шагом выпуска. PostgreSQL сохраняется в volume
-`postgres_data`; `docker compose down` сохраняет данные, а
-`docker compose down -v` удаляет volume и для рабочей базы недопустима.
+Скрипт блокирует параллельные выпуски через `flock`, скачивает образы,
+сохраняет дамп существующей БД перед миграциями, выполняет `migrate --force`,
+ждёт healthy-контейнеров и проверяет HTTP health. Только после этого обновляет
+`current` и `previous`. Последний шаг Actions проверяет публичный HTTPS health.
+При ошибке миграций/health workflow завершается ошибкой; автоматического отката
+схемы или данных нет. Первый выпуск до импорта имеет пустую целевую БД.
 
-## HTTPS proxy
+## Серверные файлы
 
-Предполагается существующий reverse proxy VPS с выпущенным сертификатом.
-Пример location в его HTTPS server-блоке Nginx:
+- `/srv/quiz/.env`: APP_KEY, пароль БД, HTTPS URL и доверенный gateway
+  `172.30.87.1`; права 600. Эти значения сохраняются между выпусками.
+- `/srv/quiz/releases/<SHA>/compose.production.yaml`: конфигурация выпуска.
+- `/srv/quiz/current`, `/srv/quiz/previous`: ссылки на успешные выпуски.
+- `/srv/quiz/deploy.sh`, `/srv/quiz/backup.sh`: копии скриптов из
+  `docker/production/`, устанавливаемые администратором, права 700.
+- `/srv/quiz/backups`: дампы PostgreSQL; хранение 14 дней.
+- `/etc/nginx/conf.d/quiz.conf`: отдельный конфиг только этого домена,
+  исходник — `docker/production/quiz.nginx.conf`.
+- `/srv/quiz/tls`: сертификат и ключ; продление существующим cron `acme.sh`.
+- `/srv/quiz/acme`: HTTP webroot для проверки владения доменом.
 
-```nginx
-location / {
-    proxy_pass http://127.0.0.1:8087;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-Host $host;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-}
-```
+Compose-проект называется `quiz-scoreboard`. PostgreSQL хранится в отдельном
+volume `quiz-scoreboard_postgres_data`. Порт БД не публикуется; Nginx контейнера
+доступен только на `127.0.0.1:8087`. HTTPS принимает Nginx хоста.
+Не запускать `docker compose down -v`: это удалит рабочую БД.
 
-Публично открываются только 80/443 внешнего proxy. Порт приложения привязан
-к loopback, порт PostgreSQL не публикуется. `APP_URL` содержит HTTPS-домен,
-`SESSION_SECURE_COOKIE=true`. Для локального HTTP smoke-теста отдельно
-использовать `SESSION_SECURE_COOKIE=false`. Копирование в браузере требует
-HTTPS или localhost.
-
-До публичного доступа выполнить [перенос данных](data-migration.md).
-После импорта и проверки удалить `SUPABASE_SOURCE_URL` из рабочего `.env` и
-пересоздать app: `docker compose up -d --force-recreate app`.
-
-## Обновление
-
-Сначала сохранить резервную копию и известный рабочий git commit/image.
-Установить новую версию исходников, затем:
+Сертификат установлен через:
 
 ```sh
-docker compose build
-docker compose run --rm app php artisan migrate --force
-docker compose up -d
-curl --fail http://127.0.0.1:8087/api/health
-docker compose logs --tail=100 app nginx
+/root/.acme.sh/acme.sh --issue --server letsencrypt -d quiz.ariesdev.kz -w /srv/quiz/acme --keylength ec-256
+/root/.acme.sh/acme.sh --install-cert -d quiz.ariesdev.kz --ecc \
+  --key-file /srv/quiz/tls/key.pem --fullchain-file /srv/quiz/tls/fullchain.pem \
+  --reloadcmd 'nginx -t && systemctl reload nginx'
 ```
 
-Production-образ содержит готовые Composer/Vite-артефакты. Node и dev server
-при работе не запускаются. Нет Redis, websocket или фонового worker.
-Не запускать `config:cache` при сборке: секреты передаются при запуске.
-При изменении `.env` нужен новый app-контейнер, а не только restart.
+Уже существующий cron acme.sh выполняет продление ежедневно. Скрипты Actions
+не меняют конфиги Nginx/сертификат/секреты. После изменения серверных скриптов
+или Nginx администратор отдельно устанавливает их актуальную версию;
+перед reload обязателен `nginx -t`.
 
-## Резервная копия и восстановление
+## Диагностика и резервные копии
 
-Выполнять копии по cron VPS, сохраняя архивы вне volume PostgreSQL и
-копируя на отдельный сервер/хранилище. Пример создания одного архива:
+В административном SSH-сеансе:
 
 ```sh
-umask 077
-mkdir -p /srv/backups/quiz
-docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc --no-owner --no-acl' > /srv/backups/quiz/quiz.dump
+cd /srv/quiz
+export APP_ENV_FILE=/srv/quiz/.env
+export IMAGE_TAG=$(basename "$(readlink -f current)")
+docker compose -p quiz-scoreboard --env-file .env -f current/compose.production.yaml ps
+docker compose -p quiz-scoreboard --env-file .env -f current/compose.production.yaml logs --tail=100 app nginx postgres
+curl --fail https://quiz.ariesdev.kz/api/health
+/srv/quiz/backup.sh
 ```
 
-Не перезаписывать единственный рабочий архив; в cron использовать уникальное
-имя по дате и контролировать exit code команды. Отдельно безопасно
-сохранить `.env`/APP_KEY: дамп БД не содержит ключ приложения.
+Ежедневный дамп запускается из `/etc/cron.d/quiz-backup`. Перед каждым
+последующим выпуском создаётся дополнительный дамп. Хранение на том же VPS
+не защищает от потери сервера: копируйте дампы и `.env` в отдельное закрытое
+хранилище. APP_KEY необходим отдельно от базы данных. Образы/слои других
+проектов не удаляются; при нехватке диска удалять только подтверждённые старые
+образы квиза, оставляя текущий и предыдущий SHA.
 
-Проверка восстановления в отдельную базу того же PostgreSQL:
+Проверка восстановления в отдельную БД (не поверх production):
 
 ```sh
-docker compose exec -T postgres sh -c 'createdb -U "$POSTGRES_USER" quiz_restore_check'
-docker compose exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d quiz_restore_check --no-owner --no-acl --exit-on-error' < /srv/backups/quiz/quiz.dump
-docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d quiz_restore_check -c "SELECT count(*) FROM games; SELECT count(*) FROM scores;"'
+# После установки переменных и Compose-команды из примера выше:
+docker compose -p quiz-scoreboard --env-file .env -f current/compose.production.yaml \
+  exec -T postgres sh -c 'createdb -U "$POSTGRES_USER" quiz_restore_check'
+docker compose -p quiz-scoreboard --env-file .env -f current/compose.production.yaml \
+  exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d quiz_restore_check --no-owner --no-acl --exit-on-error' < backups/SELECTED.dump
 ```
 
-Проверять также чтение данных приложением, направленным на восстановленную
-базу. Не восстанавливать архив поверх работающей production-базы. Порядок
-финального переключения и ограничения отката описаны в инструкции импорта.
+## Откат к предыдущему коду
 
-## Диагностика
+Остановить новые записи и проверить совместимость предыдущего кода с текущей
+схемой. Сохранить свежий дамп. В административном SSH-сеансе:
 
 ```sh
-docker compose ps
-docker compose logs --tail=100 app nginx postgres
-curl --fail http://127.0.0.1:8087/api/health
+cd /srv/quiz
+export APP_ENV_FILE=/srv/quiz/.env
+export IMAGE_TAG=$(basename "$(readlink -f previous)")
+docker compose -p quiz-scoreboard --env-file .env -f previous/compose.production.yaml up -d --wait --wait-timeout 120
+curl --fail https://quiz.ariesdev.kz/api/health
+# После успешной проверки сохранить текущую ссылку и переключить current на previous.
 ```
 
-HTTP health проверяет Laravel и запрос к БД. Healthcheck app проверяет ответ
-PHP-FPM ping. Ошибки приложения идут в stderr; production debug выключен.
+Дамп автоматически не восстанавливается: это потеряло бы новые записи.
+Для повторного выпуска конкретного коммита можно перезапустить его успешный
+Actions run, пока образы этого SHA доступны. Подробности первичного импорта
+и ограничений возврата к Supabase — в [инструкции переноса](data-migration.md).

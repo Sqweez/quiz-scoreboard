@@ -13,6 +13,7 @@ Route::get('/health', function () {
 Route::middleware('auth:sanctum')->prefix('quizplease')->controller(QuizPleaseController::class)->group(function () {
     Route::post('/login', 'login')->middleware('throttle:10,1');
     Route::get('/game', 'game');
+    Route::get('/rating-categories', 'ratingCategories');
 });
 
 Route::middleware('auth:sanctum')->prefix('games')->controller(GameController::class)->group(function () {

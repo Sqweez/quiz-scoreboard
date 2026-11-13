@@ -30,6 +30,7 @@ return [
 
     'quizplease' => [
         'url' => env('QUIZPLEASE_API_URL', 'https://api.quizplease.com'),
+        'rating_url' => env('QUIZPLEASE_RATING_API_URL', 'https://rating-api.quizplease.ru'),
         'client_id' => env('QUIZPLEASE_CLIENT_ID'),
         'client_secret' => env('QUIZPLEASE_CLIENT_SECRET'),
         'timeout' => 10,

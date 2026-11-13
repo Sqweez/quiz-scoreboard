@@ -16,6 +16,7 @@ use App\Http\Resources\GameSummaryResource;
 use App\Models\Game;
 use App\Models\Round;
 use App\Models\Team;
+use App\Services\QuizPleaseClient;
 use App\Services\QuizService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +25,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class GameController extends Controller
 {
-    public function __construct(private QuizService $quiz) {}
+    public function __construct(private QuizService $quiz, private QuizPleaseClient $quizPlease) {}
 
     public function active(Request $request): AnonymousResourceCollection
     {
@@ -55,19 +56,36 @@ class GameController extends Controller
 
     public function store(StoreGameRequest $request): GameResource
     {
-        return new GameResource($this->quiz->create($request->user()->id, $request->validated()));
+        $input = $request->validated();
+        // Linked games always get a fresh snapshot of the Quiz Please game, also when the id was typed by hand.
+        $extra = isset($input['externalId']) ? $this->quizPlease->game($request->user(), strtolower($input['externalId']))['extra'] : null;
+
+        return new GameResource($this->quiz->create($request->user()->id, $input, $extra));
     }
 
     public function update(UpdateGameRequest $request, Game $game): GameResource
     {
         $input = $request->validated();
+        $linksGame = array_key_exists('externalId', $input);
+        $externalId = $linksGame && $input['externalId'] !== null ? strtolower($input['externalId']) : null;
+        // Refetch the snapshot when the link changes or was saved before snapshots existed; fetched outside the DB lock.
+        $extra = $externalId !== null && ($externalId !== $game->external_id || $game->extra === null)
+            ? $this->quizPlease->game($request->user(), $externalId)['extra']
+            : $game->extra;
 
-        return new GameResource($this->quiz->change($game, function (Game $game) use ($input) {
+        return new GameResource($this->quiz->change($game, function (Game $game) use ($input, $linksGame, $externalId, $extra) {
             if (array_key_exists('title', $input)) {
                 $game->title = $input['title'];
             }
-            if (array_key_exists('externalId', $input)) {
-                $game->external_id = $input['externalId'] === null ? null : strtolower($input['externalId']);
+            if ($linksGame) {
+                $game->external_id = $externalId;
+                $game->extra = $externalId === null ? null : $extra;
+            }
+            if (array_key_exists('ratingCategoryId', $input)) {
+                $game->rating_category_id = $input['ratingCategoryId'];
+            }
+            if (array_key_exists('ratingIncludeScores', $input)) {
+                $game->rating_include_scores = $input['ratingIncludeScores'];
             }
         }, allowFinished: true));
     }

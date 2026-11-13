@@ -13,7 +13,10 @@ class Game extends Model
 
     protected $guarded = [];
     protected $dateFormat = 'Y-m-d H:i:s.vP';
-    protected $casts = ['status' => GameStatus::class, 'finished_at' => 'datetime'];
+    protected $casts = [
+        'status' => GameStatus::class, 'finished_at' => 'datetime',
+        'extra' => 'array', 'rating_include_scores' => 'boolean',
+    ];
 
     public function finish(): void
     {

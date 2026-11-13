@@ -19,7 +19,7 @@ beforeEach(() => {
   const pinia = createPinia()
   setActivePinia(pinia)
   const game: Game = {
-    id: 'game-1', title: 'Test', externalId: null, status: 'draft', statusLabel: 'Открытая', statusActionLabel: 'Открыть',
+    id: 'game-1', title: 'Test', externalId: null, extra: null, ratingCategoryId: null, ratingIncludeScores: true, status: 'draft', statusLabel: 'Открытая', statusActionLabel: 'Открыть',
     rounds: [{ id: 'round-1', title: 'Round', maxScore: 10 }],
     teams: [{ id: 'team-1', name: 'Alpha', scores: { 'round-1': 0 } }],
     createdAt: '2026-11-14T00:00:00.000Z', updatedAt: '2026-11-14T00:00:00.000Z'

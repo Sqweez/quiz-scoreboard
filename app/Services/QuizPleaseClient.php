@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\QuizPleaseException;
 use App\Models\User;
+use DateTimeImmutable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -42,7 +43,10 @@ class QuizPleaseClient
         $user->forceFill(['quizplease_token' => $token])->save();
     }
 
-    /** @return array{externalId: string, title: string, date: ?string, teams: list<array{externalId: string, name: string}>} */
+    /**
+     * @return array{externalId: string, title: string, date: ?string, teams: list<array{externalId: string, name: string}>,
+     *     extra: array{title: string, gameNumber: ?string, packageNumber: ?string, date: ?string}}
+     */
     public function game(User $user, string $externalId): array
     {
         throw_if($user->quizplease_token === null, QuizPleaseException::authRequired());
@@ -72,16 +76,42 @@ class QuizPleaseClient
             ->values()
             ->all();
 
+        $number = $this->optionalString($game['game_number'] ?? null);
+        $date = $this->wallClockDate($game['date'] ?? null);
         // The admin shows games as "{title} #{game_number}"; without the number every game of a series looks the same.
-        $number = $game['game_number'] ?? null;
-        $title = trim($game['title']).(is_scalar($number) && (string) $number !== '' ? ' #'.$number : '');
+        $title = trim($game['title']).($number !== null ? ' #'.$number : '');
 
         return [
             'externalId' => $externalId,
             'title' => $title,
-            'date' => is_string($game['date'] ?? null) ? $game['date'] : null,
+            'date' => $date,
             'teams' => $teams,
+            'extra' => [
+                'title' => trim($game['title']),
+                'gameNumber' => $number,
+                'packageNumber' => $this->optionalString($game['package_number'] ?? null),
+                'date' => $date,
+            ],
         ];
+    }
+
+    private function optionalString(mixed $value): ?string
+    {
+        return is_scalar($value) && trim((string) $value) !== '' ? trim((string) $value) : null;
+    }
+
+    // The API sends "dd.mm.yyyy hh:mm" without a time zone and the admin edits it as is (no conversion),
+    // so it is kept as the wall-clock time the organiser entered.
+    private function wallClockDate(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $date = is_string($value) ? DateTimeImmutable::createFromFormat('!d.m.Y H:i', $value) : false;
+        throw_unless($date !== false && $date->format('d.m.Y H:i') === $value, QuizPleaseException::unavailable());
+
+        return $date->format('Y-m-d H:i');
     }
 
     private function http(): PendingRequest

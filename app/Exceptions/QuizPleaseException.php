@@ -38,6 +38,11 @@ class QuizPleaseException extends RuntimeException implements ShouldntReport
         return new self('unavailable', 'Сервис «Квиз, плиз!» не отвечает или вернул ошибку. Попробуйте позже.', 502);
     }
 
+    public static function ratingUnavailable(): self
+    {
+        return new self('rating_unavailable', 'Рейтинг «Квиз, плиз!» не отвечает. Попробуйте позже.', 502);
+    }
+
     public function render(): JsonResponse
     {
         return response()->json(['message' => $this->getMessage(), 'reason' => $this->reason], $this->status);

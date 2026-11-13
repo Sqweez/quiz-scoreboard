@@ -12,12 +12,15 @@ use Illuminate\Support\Str;
 
 class QuizService
 {
-    public function create(string $userId, array $input): Game
+    public function create(string $userId, array $input, ?array $extra = null): Game
     {
-        return DB::transaction(function () use ($userId, $input) {
+        return DB::transaction(function () use ($userId, $input, $extra) {
             $game = Game::create([
                 'user_id' => $userId, 'title' => $input['title'], 'status' => GameStatus::Draft,
                 'external_id' => isset($input['externalId']) ? strtolower($input['externalId']) : null,
+                'extra' => $extra,
+                'rating_category_id' => $input['ratingCategoryId'] ?? null,
+                'rating_include_scores' => $input['ratingIncludeScores'] ?? true,
             ]);
             foreach ($input['rounds'] as $position => $round) {
                 $game->rounds()->create([

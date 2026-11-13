@@ -6,6 +6,7 @@ use App\Http\Requests\QuizPleaseGameRequest;
 use App\Http\Requests\QuizPleaseLoginRequest;
 use App\Models\Game;
 use App\Services\QuizPleaseClient;
+use App\Services\QuizPleaseRatingClient;
 use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 
@@ -18,6 +19,11 @@ class QuizPleaseController extends Controller
         $this->client->login($request->user(), $request->validated('username'), $request->validated('password'));
 
         return response()->noContent();
+    }
+
+    public function ratingCategories(QuizPleaseRatingClient $rating): array
+    {
+        return $rating->categories();
     }
 
     // Only reads the external game; the local game is created later by the regular store endpoint.

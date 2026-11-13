@@ -131,8 +131,9 @@ export const useQuizStore = defineStore('quiz', () => {
     }), true, false, gameId)
   }
 
+  // Title and external id stay editable after the game is finished.
   async function updateGameTitle(title: string): Promise<void> {
-    if (!currentGame.value || !title.trim() || !isEditable.value) {
+    if (!currentGame.value || !title.trim()) {
       return
     }
 
@@ -141,6 +142,19 @@ export const useQuizStore = defineStore('quiz', () => {
     await requestGame(() => http<Game>(`/api/games/${gameId}`, {
       method: 'PATCH',
       body: { title }
+    }), true, false, gameId)
+  }
+
+  async function updateGameExternalId(externalId: string | null): Promise<void> {
+    if (!currentGame.value) {
+      return
+    }
+
+    const gameId = currentGame.value.id
+
+    await requestGame(() => http<Game>(`/api/games/${gameId}`, {
+      method: 'PATCH',
+      body: { externalId }
     }), true, false, gameId)
   }
 
@@ -569,6 +583,7 @@ export const useQuizStore = defineStore('quiz', () => {
     openGame,
     finishGame,
     updateGameTitle,
+    updateGameExternalId,
     addTeam,
     deleteTeam,
     renameTeam,

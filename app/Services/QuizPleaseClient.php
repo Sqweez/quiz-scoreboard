@@ -72,9 +72,13 @@ class QuizPleaseClient
             ->values()
             ->all();
 
+        // The admin shows games as "{title} #{game_number}"; without the number every game of a series looks the same.
+        $number = $game['game_number'] ?? null;
+        $title = trim($game['title']).(is_scalar($number) && (string) $number !== '' ? ' #'.$number : '');
+
         return [
             'externalId' => $externalId,
-            'title' => trim($game['title']),
+            'title' => $title,
             'date' => is_string($game['date'] ?? null) ? $game['date'] : null,
             'teams' => $teams,
         ];

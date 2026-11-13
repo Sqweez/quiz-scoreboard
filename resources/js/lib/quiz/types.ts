@@ -16,6 +16,7 @@ export type Team = {
 export type GameCore = {
   id: string
   title: string
+  externalId: string | null
   status: GameStatus
   rounds: Round[]
   teams: Team[]

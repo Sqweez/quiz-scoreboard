@@ -14,6 +14,8 @@ const {
   title,
   teams,
   roundsCount,
+  externalId,
+  externalIdError,
   filledTeamNames,
   error,
   isSubmitting,
@@ -138,6 +140,26 @@ function handleTeamPaste(event: ClipboardEvent, id: string): void {
       >
       <p v-if="showErrors && titleError" class="text-sm text-primary">
         {{ titleError }}
+      </p>
+    </section>
+
+    <section class="space-y-3">
+      <label for="game-external-id" class="eyebrow-tight block text-muted-foreground">
+        ID игры в Квиз, плиз! — необязательно
+      </label>
+      <input
+        id="game-external-id"
+        v-model="externalId"
+        type="text"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="01a19b42-0cc8-709f-8197-62881b0dbcdc"
+        class="h-12 w-full border-0 border-b border-rule-strong bg-transparent font-mono text-base outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground"
+        :class="{ 'border-primary focus:border-primary': showErrors && externalIdError }"
+        :aria-invalid="showErrors && Boolean(externalIdError)"
+      >
+      <p v-if="showErrors && externalIdError" class="text-sm text-primary">
+        {{ externalIdError }}
       </p>
     </section>
 

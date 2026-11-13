@@ -101,4 +101,22 @@ describe('useGameSetupForm', () => {
     expect(form.title.value).toBe('Квиз')
     expect(form.teams.value.map((team) => team.name)).toEqual(['Manual', ''])
   })
+
+  it('sends an optional manually entered external id and validates its format', async () => {
+    const createGame = vi.fn().mockResolvedValue({ id: 'game-1' })
+    const form = useGameSetupForm({ createGame, navigateToGame: vi.fn() })
+
+    form.title.value = 'Quiz'
+    form.teams.value[0].name = 'A'
+    form.externalId.value = 'not-a-uuid'
+    await form.createGame()
+
+    expect(form.externalIdError.value).toBe('ID игры в Квиз, плиз! должен быть UUID.')
+    expect(createGame).not.toHaveBeenCalled()
+
+    form.externalId.value = ' 01A19B42-0CC8-709F-8197-62881B0DBCDC '
+    await form.createGame()
+
+    expect(createGame).toHaveBeenCalledWith(expect.objectContaining({ externalId: '01A19B42-0CC8-709F-8197-62881B0DBCDC' }))
+  })
 })

@@ -34,12 +34,13 @@ class QuizService
         });
     }
 
-    public function change(Game $game, callable $operation): Game
+    // Finished games are read-only unless the operation only touches game details (title, external id).
+    public function change(Game $game, callable $operation, bool $allowFinished = false): Game
     {
-        return DB::transaction(function () use ($game, $operation) {
+        return DB::transaction(function () use ($game, $operation, $allowFinished) {
             // Re-read under a row lock so concurrent edits see the latest status.
             $game = $game->newQuery()->lockForUpdate()->findOrFail($game->getKey());
-            abort_if($game->status === GameStatus::Finished, 409, 'Finished games are read-only.');
+            abort_if(!$allowFinished && $game->status === GameStatus::Finished, 409, 'Finished games are read-only.');
             $operation($game);
             $game->updated_at = now();
             $game->save();

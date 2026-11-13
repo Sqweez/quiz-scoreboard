@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import type { Game } from '~/lib/quiz'
+import { HttpError } from '~/utils/http'
 
 export type DraftTeam = {
   id: string
@@ -21,6 +22,7 @@ type UseGameSetupFormOptions = {
 export const MIN_ROUNDS = 1
 export const MAX_ROUNDS = 30
 const DEFAULT_ROUNDS = 7
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function useGameSetupForm(options: UseGameSetupFormOptions) {
   const title = ref('')
@@ -29,7 +31,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
   const error = ref('')
   const isSubmitting = ref(false)
   const showErrors = ref(false)
-  const externalId = ref<string | null>(null)
+  const externalId = ref('')
 
   const filledTeamNames = computed(() => teams.value.map((team) => team.name.trim()).filter(Boolean))
 
@@ -68,7 +70,12 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     return ''
   })
 
-  const isValid = computed(() => !titleError.value && !teamsError.value)
+  const externalIdError = computed(() => {
+    const value = externalId.value.trim()
+    return value && !UUID_PATTERN.test(value) ? 'ID игры в Квиз, плиз! должен быть UUID.' : ''
+  })
+
+  const isValid = computed(() => !titleError.value && !teamsError.value && !externalIdError.value)
 
   function addTeam(afterId?: string, name = ''): DraftTeam {
     const team = createDraftTeam(name)
@@ -139,13 +146,16 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
       isSubmitting.value = true
       const game = await options.createGame({
         title: title.value.trim(),
-        ...(externalId.value ? { externalId: externalId.value } : {}),
+        ...(externalId.value.trim() ? { externalId: externalId.value.trim() } : {}),
         teamNames: filledTeamNames.value,
         rounds: Array.from({ length: roundsCount.value }, (_, index) => ({ title: `Раунд ${index + 1}` }))
       })
       await options.navigateToGame(game)
-    } catch {
-      error.value = 'Не удалось создать игру. Проверьте подключение и авторизацию.'
+    } catch (requestError) {
+      // Validation messages (e.g. an already used external id) are actionable, so show them as is.
+      error.value = requestError instanceof HttpError && requestError.status === 422
+        ? requestError.message
+        : 'Не удалось создать игру. Проверьте подключение и авторизацию.'
     } finally {
       isSubmitting.value = false
     }
@@ -156,6 +166,7 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     teams,
     roundsCount,
     externalId,
+    externalIdError,
     filledTeamNames,
     error,
     isSubmitting,

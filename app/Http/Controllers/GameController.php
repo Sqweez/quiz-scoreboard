@@ -60,7 +60,16 @@ class GameController extends Controller
 
     public function update(UpdateGameRequest $request, Game $game): GameResource
     {
-        return new GameResource($this->quiz->change($game, fn (Game $game) => $game->title = $request->validated('title')));
+        $input = $request->validated();
+
+        return new GameResource($this->quiz->change($game, function (Game $game) use ($input) {
+            if (array_key_exists('title', $input)) {
+                $game->title = $input['title'];
+            }
+            if (array_key_exists('externalId', $input)) {
+                $game->external_id = $input['externalId'] === null ? null : strtolower($input['externalId']);
+            }
+        }, allowFinished: true));
     }
 
     public function destroy(Game $game): array

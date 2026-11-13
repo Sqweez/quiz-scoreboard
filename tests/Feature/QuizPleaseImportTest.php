@@ -123,12 +123,12 @@ class QuizPleaseImportTest extends TestCase
     public function test_game_without_confirmed_records_has_no_teams(): void
     {
         Http::fake([self::GAME_URL => Http::response(['data' => [
-            'id' => self::GAME_ID, 'title' => 'Пусто', 'date' => null,
+            'id' => self::GAME_ID, 'title' => 'Пусто', 'game_number' => null, 'date' => null,
             'records' => [$this->record(1, 3, 10, 'Резерв')],
         ]])]);
 
         $this->actingAs($this->user('token'))->getJson('/api/quizplease/game?id='.self::GAME_ID)
-            ->assertOk()->assertJsonPath('teams', []);
+            ->assertOk()->assertJsonPath('teams', [])->assertJsonPath('title', 'Пусто');
     }
 
     public function test_created_game_keeps_the_external_id_and_blocks_a_duplicate(): void
@@ -156,6 +156,36 @@ class QuizPleaseImportTest extends TestCase
         $game = $this->postJson('/api/games', ['title' => 'Manual', 'teamNames' => ['A'], 'rounds' => [['title' => 'R']]])->assertCreated()->json();
 
         $this->assertNull(Game::find($game['id'])->external_id);
+
+        $manual = $this->postJson('/api/games', [
+            'title' => 'Manual with id', 'externalId' => strtoupper(self::GAME_ID), 'teamNames' => ['A'], 'rounds' => [['title' => 'R']],
+        ])->assertCreated()->json();
+        $this->assertSame(self::GAME_ID, Game::find($manual['id'])->external_id);
+        $this->postJson('/api/games', ['title' => 'Bad', 'externalId' => 'nope', 'teamNames' => ['A'], 'rounds' => [['title' => 'R']]])
+            ->assertUnprocessable()->assertJsonValidationErrors('externalId');
+    }
+
+    public function test_external_id_can_be_set_changed_and_cleared_when_editing(): void
+    {
+        $this->actingAs($this->user());
+        $game = $this->postJson('/api/games', ['title' => 'Manual', 'teamNames' => ['A'], 'rounds' => [['title' => 'R']]])->assertCreated()->json();
+        $other = $this->postJson('/api/games', ['title' => 'Other', 'externalId' => self::GAME_ID, 'teamNames' => ['A'], 'rounds' => [['title' => 'R']]])->assertCreated()->json();
+        $url = "/api/games/{$game['id']}";
+        $newId = '0190a1b2-0cc8-709f-8197-62881b0dbcdd';
+
+        $this->patchJson($url, ['externalId' => strtoupper($newId)])->assertOk()
+            ->assertJsonPath('externalId', $newId)->assertJsonPath('title', 'Manual');
+        $this->patchJson($url, ['externalId' => $newId])->assertOk();
+        $this->patchJson($url, ['externalId' => 'nope'])->assertUnprocessable()->assertJsonValidationErrors('externalId');
+        $this->patchJson($url, ['externalId' => self::GAME_ID])->assertUnprocessable()->assertJsonValidationErrors('externalId');
+        $this->patchJson($url, ['title' => 'Renamed'])->assertOk()->assertJsonPath('externalId', $newId);
+        $this->patchJson($url, ['externalId' => null])->assertOk()->assertJsonPath('externalId', null);
+
+        // Finished games keep title and external id editable, everything else stays closed.
+        $this->postJson("/api/games/{$other['id']}/finish")->assertOk();
+        $this->patchJson("/api/games/{$other['id']}", ['externalId' => null, 'title' => 'Played'])->assertOk()
+            ->assertJsonPath('externalId', null)->assertJsonPath('title', 'Played')->assertJsonPath('status', 'finished');
+        $this->postJson("/api/games/{$other['id']}/teams", ['name' => 'Late'])->assertConflict();
     }
 
     public function test_endpoints_require_authentication(): void
@@ -176,7 +206,8 @@ class QuizPleaseImportTest extends TestCase
     {
         return ['status' => 'success', 'data' => [
             'id' => self::GAME_ID,
-            'title' => ' Квиз, плиз! #42 ',
+            'title' => ' Квиз, плиз! ',
+            'game_number' => 42,
             'date' => '2026-11-20 19:30:00',
             'records' => [
                 $this->record(1, 1, 10, 'Совы'),

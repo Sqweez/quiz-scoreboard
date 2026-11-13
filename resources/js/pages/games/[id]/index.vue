@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, Check, Copy, Pencil } from 'lucide-vue-next'
+import { ArrowLeft, Check, Copy, Pencil, Upload } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
+import { Spinner } from '~/components/ui/spinner'
 import ConfirmDialog from '~/components/ConfirmDialog.vue'
+import QuizPleaseLoginDialog from '~/components/QuizPleaseLoginDialog.vue'
 import ScoreTable from '~/components/ScoreTable.vue'
 import { useResultsClipboard } from '~/composables/useResultsClipboard'
+import { useQuizPleaseLogin } from '~/composables/useQuizPleaseLogin'
 import { useQuizStore } from '~/stores/quiz'
 import { createPendingNavigation } from '~/utils/pendingNavigation'
 
@@ -17,12 +20,30 @@ const isDeleting = ref(false)
 const isConfirmingDelete = ref(false)
 const isFinishing = ref(false)
 const isConfirmingFinish = ref(false)
+const isCreatingRatingGame = ref(false)
+const ratingLogin = useQuizPleaseLogin('/api/quizplease/rating/login', 'rating_auth_required')
 
 const { copyStatus, copyStatusText, copyResults } = useResultsClipboard()
 
 const teamsCount = computed(() => quizStore.currentGame?.teams.length ?? 0)
 const roundsCount = computed(() => quizStore.currentGame?.rounds.length ?? 0)
 const isFinished = computed(() => quizStore.currentGame?.status === 'finished')
+
+// The rating module needs the linked game's details and a category; the include-scores flag always has a value.
+const canUploadRating = computed(() => {
+  const game = quizStore.currentGame
+  const extra = game?.extra
+
+  return Boolean(
+    isFinished.value
+    && game?.externalId
+    && game.ratingCategoryId !== null
+    && extra?.title
+    && extra.gameNumber
+    && extra.packageNumber
+    && extra.date
+  )
+})
 
 const metaLine = computed(() => {
   const parts: string[] = []
@@ -122,6 +143,24 @@ async function confirmFinish(): Promise<void> {
   } finally {
     isFinishing.value = false
     isConfirmingFinish.value = false
+  }
+}
+
+async function createRatingGame(): Promise<void> {
+  if (isCreatingRatingGame.value) {
+    return
+  }
+
+  isCreatingRatingGame.value = true
+
+  try {
+    await quizStore.createRatingGame()
+  } catch (requestError) {
+    // Without a rating token the login dialog opens and the creation runs again after it;
+    // other errors are already shown by the store.
+    ratingLogin.requireLogin(requestError, createRatingGame)
+  } finally {
+    isCreatingRatingGame.value = false
   }
 }
 
@@ -226,6 +265,18 @@ function pluralize(count: number, one: string, few: string, many: string): strin
                 <Check class="size-4" />
                 Завершить игру
               </Button>
+              <Button
+                v-if="canUploadRating"
+                type="button"
+                variant="outline"
+                :disabled="isCreatingRatingGame || Boolean(quizStore.currentGame.ratingCreatedAt)"
+                @click="createRatingGame"
+              >
+                <Spinner v-if="isCreatingRatingGame" />
+                <Check v-else-if="quizStore.currentGame.ratingCreatedAt" class="size-4" />
+                <Upload v-else class="size-4" />
+                {{ quizStore.currentGame.ratingCreatedAt ? 'Игра создана в рейтинге' : 'Загрузить рейтинг' }}
+              </Button>
               <Button type="button" @click="shareResults">
                 <Copy class="size-4" />
                 Скопировать результаты
@@ -270,6 +321,15 @@ function pluralize(count: number, one: string, few: string, many: string): strin
         :pending="isFinishing"
         :disabled="quizStore.isSavingScores"
         @confirm="confirmFinish"
+      />
+
+      <QuizPleaseLoginDialog
+        :open="ratingLogin.isLoginOpen.value"
+        :submit="ratingLogin.login"
+        title="Вход в рейтинг «Квиз, плиз!»"
+        description="Данные аккаунта rating.quizplease.ru. Пароль не сохраняется."
+        username-label="Email"
+        @cancel="ratingLogin.cancelLogin"
       />
 
       <ConfirmDialog

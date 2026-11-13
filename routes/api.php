@@ -14,6 +14,7 @@ Route::middleware('auth:sanctum')->prefix('quizplease')->controller(QuizPleaseCo
     Route::post('/login', 'login')->middleware('throttle:10,1');
     Route::get('/game', 'game');
     Route::get('/rating-categories', 'ratingCategories');
+    Route::post('/rating/login', 'ratingLogin')->middleware('throttle:10,1');
 });
 
 Route::middleware('auth:sanctum')->prefix('games')->controller(GameController::class)->group(function () {
@@ -27,6 +28,7 @@ Route::middleware('auth:sanctum')->prefix('games')->controller(GameController::c
         Route::patch('/{game}', 'update');
         Route::delete('/{game}', 'destroy');
         Route::post('/{game}/finish', 'finish');
+        Route::post('/{game}/rating', 'createRatingGame');
         Route::post('/{game}/teams', 'addTeam');
         Route::patch('/{game}/teams/{team}', 'renameTeam');
         Route::delete('/{game}/teams/{team}', 'deleteTeam');

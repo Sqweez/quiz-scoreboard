@@ -28,6 +28,7 @@ export type GameCore = {
   extra: GameExtra | null
   ratingCategoryId: number | null
   ratingIncludeScores: boolean
+  ratingCreatedAt: string | null
   status: GameStatus
   rounds: Round[]
   teams: Team[]

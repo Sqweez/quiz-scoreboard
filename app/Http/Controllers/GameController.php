@@ -16,7 +16,9 @@ use App\Http\Resources\GameSummaryResource;
 use App\Models\Game;
 use App\Models\Round;
 use App\Models\Team;
+use App\Exceptions\QuizPleaseException;
 use App\Services\QuizPleaseClient;
+use App\Services\QuizPleaseRatingClient;
 use App\Services\QuizService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -99,6 +101,17 @@ class GameController extends Controller
     public function finish(Game $game): GameResource
     {
         return new GameResource($this->quiz->change($game, fn (Game $game) => $game->finish()));
+    }
+
+    // Creates the game in the Quiz Please rating module; results are uploaded there separately.
+    public function createRatingGame(Request $request, Game $game, QuizPleaseRatingClient $rating): GameResource
+    {
+        throw_unless($game->isReadyForRating(), QuizPleaseException::ratingIncomplete());
+        throw_if($game->rating_created_at !== null, QuizPleaseException::ratingAlreadyCreated());
+
+        $rating->createGame($request->user(), $game);
+
+        return new GameResource($this->quiz->change($game, fn (Game $game) => $game->rating_created_at = now(), allowFinished: true));
     }
 
     public function addTeam(TeamRequest $request, Game $game): GameResource

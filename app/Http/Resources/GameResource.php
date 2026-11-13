@@ -24,6 +24,7 @@ class GameResource extends JsonResource
             'extra' => $this->extra,
             'ratingCategoryId' => $this->rating_category_id,
             'ratingIncludeScores' => $this->rating_include_scores,
+            'ratingCreatedAt' => $this->rating_created_at?->toISOString(),
             'status' => $this->status,
             'statusLabel' => $this->status->label(),
             'statusActionLabel' => $this->status->actionLabel(),

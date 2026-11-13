@@ -21,6 +21,13 @@ class QuizPleaseController extends Controller
         return response()->noContent();
     }
 
+    public function ratingLogin(QuizPleaseLoginRequest $request, QuizPleaseRatingClient $rating): Response
+    {
+        $rating->login($request->user(), $request->validated('username'), $request->validated('password'));
+
+        return response()->noContent();
+    }
+
     public function ratingCategories(QuizPleaseRatingClient $rating): array
     {
         return $rating->categories();

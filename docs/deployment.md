@@ -9,8 +9,7 @@ GitHub Actions → GHCR → SSH → Docker Compose. Plesk в деплое, на�
 
 `.github/workflows/deploy.yml` запускается только при push в `main`, включая
 merge pull request. Push в другие ветки и pull request не запускают workflow;
-ручной запуск отключён. Пока миграция проверяется, `main` остаётся со старым
-Nuxt-приложением. Workflow проверяет frontend, TypeScript, сборку и PHP-тесты
+ручной запуск отключён. Workflow проверяет frontend, TypeScript, сборку и PHP-тесты
 на синтетическом PostgreSQL, затем собирает два amd64-образа:
 
 - `ghcr.io/sqweez/quiz-scoreboard-app:<commit SHA>`
@@ -28,7 +27,7 @@ Secrets сохранены `SSH_KEY`, `SSH_KNOWN_HOSTS`, `SSH_HOST`, `SSH_USER`.
 ждёт healthy-контейнеров и проверяет HTTP health. Только после этого обновляет
 `current` и `previous`. Последний шаг Actions проверяет публичный HTTPS health.
 При ошибке миграций/health workflow завершается ошибкой; автоматического отката
-схемы или данных нет. Первый выпуск до импорта имеет пустую целевую БД.
+схемы или данных нет.
 
 ## Серверные файлы
 

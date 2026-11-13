@@ -5,7 +5,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import ScoreTable from '../../resources/js/components/ScoreTable.vue'
 import { useQuizStore } from '../../resources/js/stores/quiz'
 import { http } from '../../resources/js/utils/http'
-import type { Game } from '#shared/quiz'
+import type { Game } from '~/lib/quiz'
 
 vi.mock('../../resources/js/utils/http', () => ({
   http: vi.fn(), getRequestMessage: (error: Error) => error.message

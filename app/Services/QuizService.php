@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\GameStatus;
 use App\Models\Game;
 use App\Models\Round;
 use App\Models\Score;
@@ -11,43 +12,10 @@ use Illuminate\Support\Str;
 
 class QuizService
 {
-    public function owned(string $userId, string $id): Game
-    {
-        return Game::where('user_id', $userId)->findOrFail($id);
-    }
-
-    public function snapshot(Game $game): array
-    {
-        $game->loadMissing(['rounds', 'teams.scores']);
-        $finished = $game->status === 'finished';
-        return [
-            'id' => $game->id,
-            'title' => $game->title,
-            'status' => $game->status,
-            'statusLabel' => $finished ? 'Завершенная' : 'Открытая',
-            'statusActionLabel' => $finished ? 'Просмотр' : 'Открыть',
-            'rounds' => $game->rounds->map(fn ($round) => [
-                'id' => $round->id, 'title' => $round->title,
-                'maxScore' => $round->max_score, 'questionsCount' => $round->questions_count,
-            ])->all(),
-            'teams' => $game->teams->map(function ($team) use ($game) {
-                $values = $team->scores->keyBy('round_id');
-                return [
-                    'id' => $team->id, 'name' => $team->name,
-                    'scores' => $game->rounds->mapWithKeys(fn ($round) => [
-                        $round->id => $this->normalize($values->get($round->id)?->value, $round->max_score),
-                    ])->all(),
-                ];
-            })->all(),
-            'createdAt' => $game->created_at->toISOString(),
-            'updatedAt' => $game->updated_at->toISOString(),
-        ];
-    }
-
-    public function create(string $userId, array $input): array
+    public function create(string $userId, array $input): Game
     {
         return DB::transaction(function () use ($userId, $input) {
-            $game = Game::create(['user_id' => $userId, 'title' => $input['title'], 'status' => 'draft']);
+            $game = Game::create(['user_id' => $userId, 'title' => $input['title'], 'status' => GameStatus::Draft]);
             foreach ($input['rounds'] as $position => $round) {
                 $game->rounds()->create([
                     'title' => $round['title'], 'position' => $position,
@@ -59,19 +27,20 @@ class QuizService
                 $team = $game->teams()->create(['name' => $name, 'position' => $position]);
                 $this->initializeScores($team, $game->rounds);
             }
-            return $this->snapshot($game);
+            return $game;
         });
     }
 
-    public function change(string $userId, string $id, callable $operation): array
+    public function change(Game $game, callable $operation): Game
     {
-        return DB::transaction(function () use ($userId, $id, $operation) {
-            $game = Game::where('user_id', $userId)->lockForUpdate()->findOrFail($id);
-            abort_if($game->status === 'finished', 409, 'Finished games are read-only.');
+        return DB::transaction(function () use ($game, $operation) {
+            // Re-read under a row lock so concurrent edits see the latest status.
+            $game = $game->newQuery()->lockForUpdate()->findOrFail($game->getKey());
+            abort_if($game->status === GameStatus::Finished, 409, 'Finished games are read-only.');
             $operation($game);
             $game->updated_at = now();
             $game->save();
-            return $this->snapshot($game);
+            return $game;
         });
     }
 
@@ -82,9 +51,8 @@ class QuizService
         $this->initializeScores($team, $game->rounds);
     }
 
-    public function deleteTeam(Game $game, string $id): void
+    public function deleteTeam(Game $game, Team $team): void
     {
-        $team = $game->teams()->findOrFail($id);
         abort_if($game->teams()->count() <= 1, 422, 'At least one team must remain.');
         $team->delete();
     }
@@ -98,9 +66,8 @@ class QuizService
         }
     }
 
-    public function updateRound(Game $game, string $id, array $input): void
+    public function updateRound(Round $round, array $input): void
     {
-        $round = $game->rounds()->findOrFail($id);
         $fields = [];
         foreach (['title' => 'title', 'maxScore' => 'max_score', 'questionsCount' => 'questions_count'] as $key => $column) {
             if (array_key_exists($key, $input)) {
@@ -109,13 +76,12 @@ class QuizService
         }
         $round->update($fields);
         foreach ($round->scores as $score) {
-            $score->update(['value' => $this->normalize($score->value, $round->max_score)]);
+            $score->update(['value' => $round->normalizeScore($score->value)]);
         }
     }
 
-    public function deleteRound(Game $game, string $id): void
+    public function deleteRound(Game $game, Round $round): void
     {
-        $round = $game->rounds()->findOrFail($id);
         abort_if($game->rounds()->count() <= 1, 422, 'At least one round must remain.');
         $round->delete();
     }
@@ -130,7 +96,7 @@ class QuizService
             $key = $update['teamId'].':'.$update['roundId'];
             $rows[$key] = [
                 'id' => (string) Str::uuid(), 'team_id' => $update['teamId'], 'round_id' => $update['roundId'],
-                'value' => $this->normalize($update['score'], $rounds[$update['roundId']]->max_score),
+                'value' => $rounds[$update['roundId']]->normalizeScore($update['score']),
             ];
         }
         if ($rows !== []) {
@@ -147,11 +113,5 @@ class QuizService
         if ($rows !== []) {
             Score::insert($rows);
         }
-    }
-
-    private function normalize(mixed $value, ?float $max): float
-    {
-        $score = max(0, (float) $value);
-        return $max === null ? $score : min($score, $max);
     }
 }

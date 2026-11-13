@@ -1,8 +1,8 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { http, getRequestMessage } from '../utils/http'
-import type { CreateGameInput, Game, Round, ScoreUpdateInput, Team } from '#shared/quiz'
-import { getTeamTotal, normalizeScoreInput, sortTeamsByScore } from '#shared/quiz'
+import type { CreateGameInput, Game, Round, ScoreUpdateInput, Team } from '~/lib/quiz'
+import { getTeamTotal, normalizeScoreInput, sortTeamsByScore } from '~/lib/quiz'
 
 type RoundUpdates = Partial<Pick<Round, 'title' | 'maxScore' | 'questionsCount'>>
 type PendingScoreChange = {
@@ -17,7 +17,6 @@ const SCORE_SAVE_SUCCESS_MS = 1200
 
 export const useQuizStore = defineStore('quiz', () => {
   const currentGame = ref<Game | null>(null)
-  const games = ref<Game[]>([])
   const isLoading = ref(false)
   const error = ref('')
   const isEditable = computed(() => currentGame.value?.status !== 'finished')
@@ -79,8 +78,6 @@ export const useQuizStore = defineStore('quiz', () => {
       body: input
     }), true, true)
 
-    upsertGame(game)
-
     return game
   }
 
@@ -100,6 +97,8 @@ export const useQuizStore = defineStore('quiz', () => {
       }
 
       resetScoreAutosaveState()
+      // Drop the previous game so its results are not shown while the next one loads.
+      currentGame.value = null
     }
 
     if (gameId) {
@@ -108,10 +107,6 @@ export const useQuizStore = defineStore('quiz', () => {
     }
 
     await requestOptionalGame(() => http<Game | null>('/api/games/current'))
-  }
-
-  async function loadGames(): Promise<void> {
-    await requestGames(() => http<Game[]>('/api/games'))
   }
 
   async function openGame(gameId: string): Promise<void> {
@@ -283,8 +278,6 @@ export const useQuizStore = defineStore('quiz', () => {
 
     try {
       await http(`/api/games/${gameId}`, { method: 'DELETE' })
-
-      games.value = games.value.filter((game) => game.id !== gameId)
     } catch (requestError) {
       error.value = getRequestMessage(requestError)
       await loadGame(gameId)
@@ -363,33 +356,6 @@ export const useQuizStore = defineStore('quiz', () => {
     }
   }
 
-  async function requestGames(fetcher: () => Promise<Game[]>): Promise<void> {
-    isLoading.value = true
-    error.value = ''
-
-    try {
-      games.value = await fetcher()
-    } catch (requestError) {
-      games.value = []
-      error.value = getRequestMessage(requestError)
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  function upsertGame(game: Game): void {
-    const index = games.value.findIndex((item) => item.id === game.id)
-
-    if (index >= 0) {
-      games.value[index] = game
-      return
-    }
-
-    games.value = [game, ...games.value].sort((left, right) =>
-      new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
-    )
-  }
-
   async function flushPendingScoreChanges(immediate = false): Promise<boolean> {
     if (!currentGame.value || !isEditable.value) {
       return true
@@ -451,7 +417,6 @@ export const useQuizStore = defineStore('quiz', () => {
 
       if (currentGame.value?.id === gameId) {
         currentGame.value.updatedAt = response.updatedAt
-        upsertGame(currentGame.value)
       }
 
       const nextPending = { ...pendingScoreChanges.value }
@@ -558,7 +523,6 @@ export const useQuizStore = defineStore('quiz', () => {
 
     const nextGame = mergePendingScoreChanges(game)
     currentGame.value = nextGame
-    upsertGame(nextGame)
   }
 
   function mergePendingScoreChanges(game: Game): Game {
@@ -597,13 +561,11 @@ export const useQuizStore = defineStore('quiz', () => {
 
   return {
     currentGame,
-    games,
     isLoading,
     error,
     sortedTeams,
     createGame,
     loadGame,
-    loadGames,
     openGame,
     finishGame,
     updateGameTitle,

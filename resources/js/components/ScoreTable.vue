@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue'
 import { useQuizStore } from '../stores/quiz'
-import type { Round, Team } from '#shared/quiz'
+import type { Round, Team } from '~/lib/quiz'
 import { usePinnedTeamOrder } from '../composables/usePinnedTeamOrder'
 
 const props = defineProps<{

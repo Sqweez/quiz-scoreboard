@@ -5,13 +5,12 @@
 This is a Laravel 13 + Inertia + Vue monolith backed by PostgreSQL 17. It is
 the only live application: production runs at `https://quiz.ariesdev.kz` on
 the VPS, and real data was migrated from Supabase on 2026-11-14. The old Nuxt
-app, Supabase backend and Netlify site are retired; ignore leftover untracked
-Nuxt directories (`.nuxt`, `.output`, `server/`).
+app, Supabase backend and Netlify site are retired.
 
 PHP application code lives in `app/`, HTTP routes in `routes/web.php`,
 scheduled tasks in `routes/console.php`, schema migrations in
 `database/migrations/`, and Vue pages/components/stores in `resources/js/`.
-Shared quiz types and scoring functions live in `shared/quiz/`. Static assets
+Shared quiz types and scoring functions live in `resources/js/lib/quiz/`. Static assets
 belong in `public/`. Docker and server files live in `docker/` and
 `docker/production/`. Product context and the visual system are described in
 `PRODUCT.md` and `DESIGN.md`; follow them for UI changes.

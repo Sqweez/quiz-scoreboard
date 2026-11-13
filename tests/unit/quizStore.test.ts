@@ -5,7 +5,7 @@ import { http } from '../../resources/js/utils/http'
 
 vi.mock('../../resources/js/utils/http', () => ({ http: vi.fn(), getRequestMessage: (error: Error) => error.message }))
 
-import type { Game } from '#shared/quiz'
+import type { Game } from '~/lib/quiz'
 
 const SCORE_SAVE_DEBOUNCE_MS = 350
 const API_DELAY_MS = 2000
@@ -162,6 +162,24 @@ describe('useQuizStore game loading', () => {
     expect(fetchMock).toHaveBeenCalledWith(`/api/games/${game.id}`)
     expect(store.currentGame?.id).toBe(game.id)
     expect(store.currentGame?.title).toBe(game.title)
+  })
+
+  it('does not show the previous game while another game is loading', async () => {
+    const store = useQuizStore()
+    store.currentGame = createGame()
+    const nextGame = { ...createGame(), id: 'game-2', title: 'Next game' }
+    let resolveNext: (game: Game) => void = () => {}
+    vi.mocked(http).mockImplementation(() => new Promise<Game>((resolve) => { resolveNext = resolve }))
+
+    const loadPromise = store.loadGame(nextGame.id)
+
+    expect(store.currentGame).toBeNull()
+    expect(store.isLoading).toBe(true)
+
+    resolveNext(nextGame)
+    await loadPromise
+
+    expect(store.currentGame?.id).toBe('game-2')
   })
 })
 

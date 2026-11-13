@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -9,22 +11,17 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
+    public function register(RegisterRequest $request)
     {
-        $input = $request->validate([
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'max:72'],
-        ]);
-        $user = User::create($input);
+        $user = User::create($request->validated());
         Auth::login($user);
         $request->session()->regenerate();
         return response()->json($user->only('id', 'email'), 201);
     }
 
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-        $input = $request->validate(['email' => ['required', 'email'], 'password' => ['required', 'string']]);
-        if (!Auth::attempt($input)) {
+        if (!Auth::attempt($request->validated())) {
             throw ValidationException::withMessages(['email' => 'Неверный email или пароль.']);
         }
         $request->session()->regenerate();

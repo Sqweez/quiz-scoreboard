@@ -13,7 +13,8 @@ class QuizTest extends TestCase
 
     public function test_api_requires_authentication(): void
     {
-        $this->getJson('/api/games')->assertUnauthorized();
+        $this->getJson('/api/games/active')->assertUnauthorized();
+        $this->getJson('/api/games/finished')->assertUnauthorized();
     }
 
     public function test_game_lifecycle_preserves_the_client_contract_and_fractional_scores(): void
@@ -33,7 +34,7 @@ class QuizTest extends TestCase
             ->assertOk()->assertJsonPath("teams.0.scores.$round", 1.5);
         $this->patchJson($url, ['title' => 'Updated'])->assertOk()->assertJsonPath('title', 'Updated');
         $this->getJson('/api/games/current')->assertOk()->assertJsonPath('id', $game['id']);
-        $this->getJson('/api/games')->assertOk()->assertJsonCount(1);
+        $this->getJson('/api/games/active')->assertOk()->assertJsonCount(1, 'data');
         $this->postJson("$url/finish")->assertOk()->assertJsonPath('status', 'finished');
         $this->patchJson("$url/scores/bulk", ['updates' => [
             ['teamId' => $team, 'roundId' => $round, 'score' => 1],
@@ -62,7 +63,26 @@ class QuizTest extends TestCase
         $this->actingAs($this->user());
         $this->getJson($url)->assertNotFound();
         $this->deleteJson($url)->assertNotFound();
-        $this->getJson('/api/games')->assertExactJson([]);
+        $this->getJson('/api/games/active')->assertOk()->assertExactJson(['data' => []]);
+        $this->getJson('/api/games/finished')->assertOk()->assertJsonPath('meta.total', 0);
+    }
+
+    public function test_route_bindings_reject_invalid_ids_foreign_children_and_foreign_pages(): void
+    {
+        $this->actingAs($this->user());
+        $game = $this->createGame();
+        $otherGame = $this->createGame();
+        $url = "/api/games/{$game['id']}";
+
+        $this->getJson('/api/games/not-a-uuid')->assertNotFound();
+        $this->patchJson("$url/teams/not-a-uuid", ['name' => 'X'])->assertNotFound();
+        $this->patchJson("$url/teams/{$otherGame['teams'][0]['id']}", ['name' => 'X'])->assertNotFound();
+        $this->deleteJson("$url/rounds/{$otherGame['rounds'][0]['id']}")->assertNotFound();
+        $this->get("/games/{$game['id']}")->assertOk();
+
+        $this->actingAs($this->user());
+        $this->get("/games/{$game['id']}")->assertNotFound();
+        $this->get("/games/{$game['id']}/edit")->assertNotFound();
     }
 
     public function test_team_and_round_editing_initializes_scores_and_keeps_one_of_each(): void
@@ -107,6 +127,68 @@ class QuizTest extends TestCase
         $this->patchJson('/api/games/not-a-uuid', ['title' => 'X'])->assertNotFound();
     }
 
+    public function test_home_lists_split_active_and_paginated_finished_summaries(): void
+    {
+        $this->actingAs($this->user());
+        $active = $this->createGame();
+        for ($i = 0; $i < 11; $i++) {
+            $this->postJson("/api/games/{$this->createGame()['id']}/finish")->assertOk();
+        }
+
+        $this->getJson('/api/games/active')->assertOk()
+            ->assertExactJson(['data' => [[
+                'id' => $active['id'], 'title' => 'Quiz', 'teamsCount' => 2, 'roundsCount' => 1,
+                'updatedAt' => $active['updatedAt'], 'finishedAt' => null,
+            ]]]);
+
+        $this->getJson('/api/games/finished')->assertOk()
+            ->assertJsonCount(10, 'data')
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.last_page', 2)
+            ->assertJsonPath('meta.total', 11)
+            ->assertJsonStructure(['data' => [['id', 'title', 'teamsCount', 'roundsCount', 'updatedAt', 'finishedAt']]]);
+        $this->assertNotNull($this->getJson('/api/games/finished')->json('data.0.finishedAt'));
+        $this->getJson('/api/games/finished?page=2')->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_finished_games_search_by_title_case_insensitively_and_literally(): void
+    {
+        $this->actingAs($this->user());
+        foreach (['Пятничный квиз', 'Субботний КВИЗ', '100% эрудит', 'Draft only'] as $title) {
+            $game = $this->createGame();
+            $this->patchJson("/api/games/{$game['id']}", ['title' => $title])->assertOk();
+            if ($title !== 'Draft only') {
+                $this->postJson("/api/games/{$game['id']}/finish")->assertOk();
+            }
+        }
+
+        $titles = fn (string $search) => array_column($this->getJson('/api/games/finished?search='.urlencode($search))->assertOk()->json('data'), 'title');
+
+        $this->assertEqualsCanonicalizing(['Пятничный квиз', 'Субботний КВИЗ'], $titles('квиз'));
+        $this->assertSame(['100% эрудит'], $titles('0%'));
+        $this->assertSame([], $titles('%'.'_'));
+        $this->assertSame([], $titles('Draft'));
+        $this->assertCount(3, $titles('  '));
+        $this->getJson('/api/games/finished?search='.str_repeat('a', 256))->assertUnprocessable();
+    }
+
+    public function test_stale_games_are_finished_at_their_last_update(): void
+    {
+        $this->actingAs($this->user());
+        $game = $this->createGame();
+        $this->patchJson("/api/games/{$game['id']}/scores/bulk", ['updates' => [
+            ['teamId' => $game['teams'][0]['id'], 'roundId' => $game['rounds'][0]['id'], 'score' => 3],
+        ]])->assertOk();
+        $lastUpdate = now()->subHours(3)->startOfSecond();
+        DB::table('games')->where('id', $game['id'])->update(['updated_at' => $lastUpdate]);
+
+        $this->artisan('games:finish-stale')->assertSuccessful();
+
+        $this->getJson('/api/games/finished')->assertOk()
+            ->assertJsonPath('data.0.id', $game['id'])
+            ->assertJsonPath('data.0.finishedAt', $lastUpdate->toISOString());
+    }
+
     private function user(): User
     {
         return User::create(['email' => fake()->unique()->safeEmail(), 'password' => 'test-password']);
@@ -117,6 +199,6 @@ class QuizTest extends TestCase
         return $this->postJson('/api/games', [
             'title' => 'Quiz', 'teamNames' => ['Alpha', 'Beta'],
             'rounds' => [['title' => 'First', 'maxScore' => 10, 'questionsCount' => 5]],
-        ])->assertOk()->assertJsonStructure(['id', 'status', 'statusLabel', 'statusActionLabel', 'teams', 'rounds', 'createdAt', 'updatedAt'])->json();
+        ])->assertCreated()->assertJsonStructure(['id', 'status', 'statusLabel', 'statusActionLabel', 'teams', 'rounds', 'createdAt', 'updatedAt'])->json();
     }
 }

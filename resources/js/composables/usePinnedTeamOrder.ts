@@ -1,5 +1,5 @@
 import { computed, nextTick, ref } from "vue";
-import type { Team } from '#shared/quiz'
+import type { Team } from '~/lib/quiz'
 
 export function usePinnedTeamOrder(sortedTeams: () => Team[]) {
   const pinnedTeamIds = ref<string[] | null>(null);

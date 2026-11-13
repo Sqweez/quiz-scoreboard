@@ -2,8 +2,7 @@ name: Test and deploy quiz
 
 on:
   push:
-    branches: [main, migrate/laravel-monolith]
-  workflow_dispatch:
+    branches: [main]
 
 permissions:
   contents: read
@@ -43,7 +42,10 @@ jobs:
         env:
           PGPASSWORD: quiz
         run: psql -h 127.0.0.1 -p 55439 -U quiz -d quiz_test -c 'CREATE DATABASE quiz_source'
-      - run: php artisan test
+      - name: Run backend tests
+        run: |
+          cp .env.example .env
+          php artisan test
 
   build:
     needs: test

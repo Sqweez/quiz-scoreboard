@@ -107,6 +107,7 @@ class QuizPleaseRatingGameTest extends TestCase
         Http::assertNotSent(fn (Request $request) => $request->url() === self::QUEUE_URL);
         $this->assertNotNull($game->fresh()->rating_created_at);
         $this->postJson("/api/games/{$game->id}/rating/game")->assertStatus(409)->assertJsonPath('reason', 'rating_already_created');
+        $this->getJson('/api/games/finished')->assertJsonPath('data.0.ratingStatus', 'created');
 
         $download = $this->get("/api/games/{$game->id}/rating/results")->assertOk()
             ->assertDownload(self::EXTERNAL_ID.'.xlsx');
@@ -114,6 +115,7 @@ class QuizPleaseRatingGameTest extends TestCase
 
         // The full upload after a manual creation only queues the table.
         $this->postJson("/api/games/{$game->id}/rating")->assertOk();
+        $this->getJson('/api/games/finished')->assertJsonPath('data.0.ratingStatus', 'uploaded');
         $this->assertCount(1, Http::recorded(fn (Request $request) => $request->method() === 'POST' && $request->url() === self::GAME_URL));
         Http::assertSent(fn (Request $request) => $request->url() === self::QUEUE_URL);
     }

@@ -50,6 +50,7 @@ export type GameSummary = {
   roundsCount: number
   updatedAt: string
   finishedAt: string | null
+  ratingStatus: 'uploaded' | 'created' | null
 }
 
 export type ResourceCollection<T> = {

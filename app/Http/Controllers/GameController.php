@@ -201,7 +201,7 @@ class GameController extends Controller
     private function summaries(Request $request): Builder
     {
         return Game::where('user_id', $request->user()->id)
-            ->select(['id', 'title', 'updated_at', 'finished_at'])
+            ->select(['id', 'title', 'updated_at', 'finished_at', 'rating_created_at', 'rating_uploaded_at'])
             ->withCount(['teams', 'rounds']);
     }
 }

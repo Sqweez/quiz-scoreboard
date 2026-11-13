@@ -97,6 +97,8 @@ export const useQuizStore = defineStore('quiz', () => {
       }
 
       resetScoreAutosaveState()
+      // Drop the previous game so its results are not shown while the next one loads.
+      currentGame.value = null
     }
 
     if (gameId) {

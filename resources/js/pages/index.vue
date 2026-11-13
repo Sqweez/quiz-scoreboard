@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, ArrowRight, LogIn, LogOut, Plus, Search } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, Check, LogIn, LogOut, Plus, Search } from 'lucide-vue-next'
 import type { GameSummary, PaginatedResourceCollection, ResourceCollection } from '~/lib/quiz'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -264,6 +264,7 @@ async function signOut(): Promise<void> {
                 <th scope="col" class="py-3 pr-3 text-left font-medium">Игра</th>
                 <th scope="col" class="px-3 py-3 text-right font-medium">Команд</th>
                 <th scope="col" class="px-3 py-3 text-right font-medium">Раундов</th>
+                <th scope="col" class="px-3 py-3 text-left font-medium">Рейтинг</th>
                 <th scope="col" class="py-3 pl-3 text-right font-medium">Дата</th>
               </tr>
             </thead>
@@ -284,6 +285,17 @@ async function signOut(): Promise<void> {
                 </td>
                 <td class="px-3 py-3.5 text-right align-middle text-sm text-muted-foreground">
                   {{ game.roundsCount }}
+                </td>
+                <td
+                  class="whitespace-nowrap px-3 py-3.5 align-middle text-sm"
+                  :class="game.ratingStatus === 'uploaded' ? 'text-foreground' : 'text-muted-foreground'"
+                >
+                  <span v-if="game.ratingStatus === 'uploaded'" class="inline-flex items-center gap-1.5">
+                    <Check class="size-3.5" />
+                    Загружен
+                  </span>
+                  <template v-else-if="game.ratingStatus === 'created'">Игра создана</template>
+                  <template v-else>—</template>
                 </td>
                 <td class="whitespace-nowrap py-3.5 pl-3 text-right align-middle text-sm text-muted-foreground">
                   {{ dateFormat.format(new Date(game.finishedAt!)) }}

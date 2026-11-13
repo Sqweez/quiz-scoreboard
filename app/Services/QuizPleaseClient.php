@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\QuizPleaseException;
 use App\Models\User;
+use DateTimeImmutable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -42,23 +43,31 @@ class QuizPleaseClient
         $user->forceFill(['quizplease_token' => $token])->save();
     }
 
-    /** @return array{externalId: string, title: string, date: ?string, teams: list<array{externalId: string, name: string}>} */
+    // The admin user's profile in the shape the admin sends to the rating module when signing in there.
+    /** @return array{name: string, email: string, is_root: bool, cities: list<array{code: string, title: string}>} */
+    public function profile(User $user): array
+    {
+        $profile = $this->authorized($user, '/api/user')->json('data');
+        throw_unless(is_string($profile['name'] ?? null) && is_string($profile['email'] ?? null), QuizPleaseException::unavailable());
+
+        return [
+            'name' => $profile['name'],
+            'email' => $profile['email'],
+            'is_root' => ($profile['role']['slug'] ?? null) === 'root',
+            'cities' => collect($profile['managed_cities'] ?? [])
+                ->map(fn (array $city) => ['code' => (string) $city['slug'], 'title' => (string) $city['title']])
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /**
+     * @return array{externalId: string, title: string, date: ?string, teams: list<array{externalId: string, name: string}>,
+     *     extra: array{title: string, gameNumber: ?string, packageNumber: ?string, date: ?string}}
+     */
     public function game(User $user, string $externalId): array
     {
-        throw_if($user->quizplease_token === null, QuizPleaseException::authRequired());
-
-        $response = $this->send(fn () => $this->http()->withToken($user->quizplease_token)
-            ->get("/api/games/{$externalId}?relationships[]=game_records.game_team"));
-
-        if ($response->status() === 401) {
-            // The API offers no confirmed refresh flow, so a rejected token requires a new login.
-            $user->forceFill(['quizplease_token' => null])->save();
-            throw QuizPleaseException::authRequired();
-        }
-        throw_if($response->status() === 403, QuizPleaseException::forbidden());
-        throw_if($response->status() === 404, QuizPleaseException::notFound());
-
-        $game = $this->successful($response)->json('data');
+        $game = $this->authorized($user, "/api/games/{$externalId}?relationships[]=game_records.game_team")->json('data');
         throw_unless(is_array($game) && is_string($game['title'] ?? null) && is_array($game['records'] ?? null), QuizPleaseException::unavailable());
 
         $teams = collect($game['records'])
@@ -72,16 +81,59 @@ class QuizPleaseClient
             ->values()
             ->all();
 
+        $number = $this->optionalString($game['game_number'] ?? null);
+        $date = $this->wallClockDate($game['date'] ?? null);
         // The admin shows games as "{title} #{game_number}"; without the number every game of a series looks the same.
-        $number = $game['game_number'] ?? null;
-        $title = trim($game['title']).(is_scalar($number) && (string) $number !== '' ? ' #'.$number : '');
+        $title = trim($game['title']).($number !== null ? ' #'.$number : '');
 
         return [
             'externalId' => $externalId,
             'title' => $title,
-            'date' => is_string($game['date'] ?? null) ? $game['date'] : null,
+            'date' => $date,
             'teams' => $teams,
+            'extra' => [
+                'title' => trim($game['title']),
+                'gameNumber' => $number,
+                'packageNumber' => $this->optionalString($game['package_number'] ?? null),
+                'date' => $date,
+            ],
         ];
+    }
+
+    private function authorized(User $user, string $path): Response
+    {
+        throw_if($user->quizplease_token === null, QuizPleaseException::authRequired());
+
+        $response = $this->send(fn () => $this->http()->withToken($user->quizplease_token)->get($path));
+
+        if ($response->status() === 401) {
+            // The API offers no confirmed refresh flow, so a rejected token requires a new login.
+            $user->forceFill(['quizplease_token' => null])->save();
+            throw QuizPleaseException::authRequired();
+        }
+        throw_if($response->status() === 403, QuizPleaseException::forbidden());
+        throw_if($response->status() === 404, QuizPleaseException::notFound());
+
+        return $this->successful($response);
+    }
+
+    private function optionalString(mixed $value): ?string
+    {
+        return is_scalar($value) && trim((string) $value) !== '' ? trim((string) $value) : null;
+    }
+
+    // The API sends "dd.mm.yyyy hh:mm" without a time zone and the admin edits it as is (no conversion),
+    // so it is kept as the wall-clock time the organiser entered.
+    private function wallClockDate(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $date = is_string($value) ? DateTimeImmutable::createFromFormat('!d.m.Y H:i', $value) : false;
+        throw_unless($date !== false && $date->format('d.m.Y H:i') === $value, QuizPleaseException::unavailable());
+
+        return $date->format('Y-m-d H:i');
     }
 
     private function http(): PendingRequest

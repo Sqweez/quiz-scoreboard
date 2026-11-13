@@ -1,11 +1,14 @@
 import { ref } from 'vue'
-import { getRequestMessage, http, HttpError } from '~/utils/http'
+import type { GameExtra } from '~/lib/quiz'
+import { useQuizPleaseLogin } from '~/composables/useQuizPleaseLogin'
+import { getRequestMessage, http } from '~/utils/http'
 
 export type ExternalGame = {
   externalId: string
   title: string
   date: string | null
   teams: Array<{ externalId: string, name: string }>
+  extra: GameExtra
   existingGameId: string | null
 }
 
@@ -18,7 +21,7 @@ export function useQuizPleaseImport(options: UseQuizPleaseImportOptions) {
   const game = ref<ExternalGame | null>(null)
   const error = ref('')
   const isFetching = ref(false)
-  const isLoginOpen = ref(false)
+  const quizPleaseLogin = useQuizPleaseLogin()
 
   async function fetchGame(): Promise<void> {
     if (isFetching.value) {
@@ -33,8 +36,7 @@ export function useQuizPleaseImport(options: UseQuizPleaseImportOptions) {
       game.value = result
       options.onImported(result)
     } catch (requestError) {
-      if (requestError instanceof HttpError && requestError.reason === 'auth_required') {
-        isLoginOpen.value = true
+      if (quizPleaseLogin.requireLogin(requestError, fetchGame)) {
         return
       }
 
@@ -44,17 +46,10 @@ export function useQuizPleaseImport(options: UseQuizPleaseImportOptions) {
     }
   }
 
-  // Throws on failure so the login dialog can show the error; on success resumes the pending fetch.
-  async function login(username: string, password: string): Promise<void> {
-    await http('/api/quizplease/login', { method: 'POST', body: { username, password } })
-    isLoginOpen.value = false
-    await fetchGame()
-  }
-
   function cancelLogin(): void {
-    isLoginOpen.value = false
+    quizPleaseLogin.cancelLogin()
     error.value = 'Вход отменён. Чтобы получить игру, войдите в «Квиз, плиз!».'
   }
 
-  return { gameId, game, error, isFetching, isLoginOpen, fetchGame, login, cancelLogin }
+  return { gameId, game, error, isFetching, isLoginOpen: quizPleaseLogin.isLoginOpen, fetchGame, login: quizPleaseLogin.login, cancelLogin }
 }

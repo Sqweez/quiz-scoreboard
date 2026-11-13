@@ -138,7 +138,7 @@ class QuizTest extends TestCase
         $this->getJson('/api/games/active')->assertOk()
             ->assertExactJson(['data' => [[
                 'id' => $active['id'], 'title' => 'Quiz', 'teamsCount' => 2, 'roundsCount' => 1,
-                'updatedAt' => $active['updatedAt'], 'finishedAt' => null,
+                'updatedAt' => $active['updatedAt'], 'finishedAt' => null, 'ratingStatus' => null,
             ]]]);
 
         $this->getJson('/api/games/finished')->assertOk()

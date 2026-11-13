@@ -145,7 +145,8 @@ export const useQuizStore = defineStore('quiz', () => {
     }), true, false, gameId)
   }
 
-  async function updateGameExternalId(externalId: string | null): Promise<void> {
+  // Throws so callers can react to Quiz Please errors such as a required login.
+  async function updateGameDetails(details: Partial<Pick<Game, 'title' | 'externalId' | 'ratingCategoryId' | 'ratingIncludeScores' | 'ratingPackage'>>): Promise<void> {
     if (!currentGame.value) {
       return
     }
@@ -154,8 +155,28 @@ export const useQuizStore = defineStore('quiz', () => {
 
     await requestGame(() => http<Game>(`/api/games/${gameId}`, {
       method: 'PATCH',
-      body: { externalId }
-    }), true, false, gameId)
+      body: details
+    }), true, true, gameId)
+  }
+
+  async function uploadRating(): Promise<void> {
+    if (!currentGame.value) {
+      return
+    }
+
+    const gameId = currentGame.value.id
+
+    await requestGame(() => http<Game>(`/api/games/${gameId}/rating`, { method: 'POST' }), false, true, gameId)
+  }
+
+  async function createRatingGame(): Promise<void> {
+    if (!currentGame.value) {
+      return
+    }
+
+    const gameId = currentGame.value.id
+
+    await requestGame(() => http<Game>(`/api/games/${gameId}/rating/game`, { method: 'POST' }), false, true, gameId)
   }
 
   async function addTeam(name = `Команда ${(currentGame.value?.teams.length ?? 0) + 1}`): Promise<void> {
@@ -583,7 +604,9 @@ export const useQuizStore = defineStore('quiz', () => {
     openGame,
     finishGame,
     updateGameTitle,
-    updateGameExternalId,
+    updateGameDetails,
+    uploadRating,
+    createRatingGame,
     addTeam,
     deleteTeam,
     renameTeam,

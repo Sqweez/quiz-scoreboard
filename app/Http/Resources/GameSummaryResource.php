@@ -17,6 +17,12 @@ class GameSummaryResource extends JsonResource
             'roundsCount' => $this->rounds_count,
             'updatedAt' => $this->updated_at->toISOString(),
             'finishedAt' => $this->finished_at?->toISOString(),
+            // Progress in the Quiz Please rating: results queued, only the rating game created, or nothing yet.
+            'ratingStatus' => match (true) {
+                $this->rating_uploaded_at !== null => 'uploaded',
+                $this->rating_created_at !== null => 'created',
+                default => null,
+            },
         ];
     }
 }

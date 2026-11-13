@@ -22,6 +22,8 @@ describe('useGameSetupForm', () => {
 
     expect(createGame).toHaveBeenCalledWith({
       title: 'Final quiz',
+      ratingCategoryId: null,
+      ratingIncludeScores: true, ratingPackage: null,
       teamNames: ['Team A'],
       rounds: [{ title: 'Раунд 1' }, { title: 'Раунд 2' }, { title: 'Раунд 3' }]
     })
@@ -118,5 +120,36 @@ describe('useGameSetupForm', () => {
     await form.createGame()
 
     expect(createGame).toHaveBeenCalledWith(expect.objectContaining({ externalId: '01A19B42-0CC8-709F-8197-62881B0DBCDC' }))
+  })
+
+  it('sends the chosen rating settings', async () => {
+    const createGame = vi.fn().mockResolvedValue({ id: 'game-1' })
+    const form = useGameSetupForm({ createGame, navigateToGame: vi.fn() })
+
+    form.title.value = 'Quiz'
+    form.teams.value[0].name = 'A'
+    form.ratingCategoryId.value = 2
+    form.ratingIncludeScores.value = false
+    await form.createGame()
+
+    expect(createGame).toHaveBeenCalledWith(expect.objectContaining({ ratingCategoryId: 2, ratingIncludeScores: false }))
+  })
+
+  it('asks for a Quiz Please login when saving a linked game needs it', async () => {
+    const { HttpError } = await import('../../resources/js/utils/http')
+    const createGame = vi.fn()
+      .mockRejectedValueOnce(new HttpError('Войдите в «Квиз, плиз!», чтобы получить игру.', 409, 'auth_required'))
+      .mockResolvedValueOnce({ id: 'game-1' })
+    const navigateToGame = vi.fn()
+    const form = useGameSetupForm({ createGame, navigateToGame })
+
+    form.title.value = 'Quiz'
+    form.teams.value[0].name = 'A'
+    form.externalId.value = '01a19b42-0cc8-709f-8197-62881b0dbcdc'
+    await form.createGame()
+
+    expect(form.isLoginOpen.value).toBe(true)
+    expect(form.error.value).toBe('Войдите в «Квиз, плиз!», чтобы получить игру.')
+    expect(navigateToGame).not.toHaveBeenCalled()
   })
 })

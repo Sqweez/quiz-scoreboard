@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\RatingCategory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,6 +16,9 @@ class UpdateGameRequest extends FormRequest
                 'sometimes', 'nullable', 'uuid',
                 Rule::unique('games', 'external_id')->where('user_id', $this->user()->id)->ignore($this->route('game')),
             ],
+            'ratingCategoryId' => ['sometimes', 'nullable', 'integer', new RatingCategory],
+            'ratingIncludeScores' => ['sometimes', 'boolean'],
+            'ratingPackage' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
 

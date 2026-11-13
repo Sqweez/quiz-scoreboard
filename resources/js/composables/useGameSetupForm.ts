@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import type { Game } from '~/lib/quiz'
+import { useQuizPleaseLogin } from '~/composables/useQuizPleaseLogin'
 import { HttpError } from '~/utils/http'
 
 export type DraftTeam = {
@@ -10,6 +11,9 @@ export type DraftTeam = {
 type CreateGamePayload = {
   title: string
   externalId?: string
+  ratingCategoryId: number | null
+  ratingIncludeScores: boolean
+  ratingPackage: string | null
   teamNames: string[]
   rounds: Array<{ title: string }>
 }
@@ -32,6 +36,11 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
   const isSubmitting = ref(false)
   const showErrors = ref(false)
   const externalId = ref('')
+  const ratingCategoryId = ref<number | null>(null)
+  const ratingIncludeScores = ref(true)
+  const ratingPackage = ref('')
+  // Saving a linked game reads it from Quiz Please, so a missing login is resolved and the save retried.
+  const quizPleaseLogin = useQuizPleaseLogin()
 
   const filledTeamNames = computed(() => teams.value.map((team) => team.name.trim()).filter(Boolean))
 
@@ -147,13 +156,18 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
       const game = await options.createGame({
         title: title.value.trim(),
         ...(externalId.value.trim() ? { externalId: externalId.value.trim() } : {}),
+        ratingCategoryId: ratingCategoryId.value,
+        ratingIncludeScores: ratingIncludeScores.value,
+        ratingPackage: ratingPackage.value.trim() || null,
         teamNames: filledTeamNames.value,
         rounds: Array.from({ length: roundsCount.value }, (_, index) => ({ title: `Раунд ${index + 1}` }))
       })
       await options.navigateToGame(game)
     } catch (requestError) {
-      // Validation messages (e.g. an already used external id) are actionable, so show them as is.
-      error.value = requestError instanceof HttpError && requestError.status === 422
+      quizPleaseLogin.requireLogin(requestError, createGame)
+
+      // Validation and Quiz Please messages (e.g. an already used or unknown external id) are actionable.
+      error.value = requestError instanceof HttpError && (requestError.status === 422 || requestError.reason)
         ? requestError.message
         : 'Не удалось создать игру. Проверьте подключение и авторизацию.'
     } finally {
@@ -167,6 +181,12 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
     roundsCount,
     externalId,
     externalIdError,
+    ratingCategoryId,
+    ratingIncludeScores,
+    ratingPackage,
+    isLoginOpen: quizPleaseLogin.isLoginOpen,
+    login: quizPleaseLogin.login,
+    cancelLogin: quizPleaseLogin.cancelLogin,
     filledTeamNames,
     error,
     isSubmitting,

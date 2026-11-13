@@ -27,11 +27,12 @@ class QuizPleaseImportTest extends TestCase
         $this->actingAs($user)->getJson('/api/quizplease/game?id='.self::GAME_ID)->assertOk()->assertExactJson([
             'externalId' => self::GAME_ID,
             'title' => 'Квиз, плиз! #42',
-            'date' => '2026-11-20 19:30:00',
+            'date' => '2026-11-20 19:30',
             'teams' => [
                 ['externalId' => '10', 'name' => 'Совы'],
                 ['externalId' => '30', 'name' => 'Ёжики'],
             ],
+            'extra' => ['title' => 'Квиз, плиз!', 'gameNumber' => '42', 'packageNumber' => '#1зумерыким', 'date' => '2026-11-20 19:30'],
             'existingGameId' => null,
         ]);
 
@@ -138,7 +139,10 @@ class QuizPleaseImportTest extends TestCase
         $this->actingAs($user);
         $payload = ['title' => 'Квиз, плиз! #42', 'externalId' => self::GAME_ID, 'teamNames' => ['Совы', 'Ёжики'], 'rounds' => [['title' => 'Раунд 1']]];
 
-        $game = $this->postJson('/api/games', $payload)->assertCreated()->json();
+        $game = $this->postJson('/api/games', $payload)->assertCreated()
+            ->assertJsonPath('extra', ['title' => 'Квиз, плиз!', 'gameNumber' => '42', 'packageNumber' => '#1зумерыким', 'date' => '2026-11-20 19:30'])
+            ->assertJsonPath('ratingCategoryId', null)->assertJsonPath('ratingIncludeScores', true)
+            ->json();
         $this->assertSame(self::GAME_ID, Game::find($game['id'])->external_id);
         $this->assertSame(['Совы', 'Ёжики'], array_column($game['teams'], 'name'));
 
@@ -151,15 +155,29 @@ class QuizPleaseImportTest extends TestCase
 
     public function test_manual_game_creation_still_works_without_an_external_id(): void
     {
+        Http::fake();
         $this->actingAs($this->user());
 
-        $game = $this->postJson('/api/games', ['title' => 'Manual', 'teamNames' => ['A'], 'rounds' => [['title' => 'R']]])->assertCreated()->json();
+        $game = $this->postJson('/api/games', ['title' => 'Manual', 'teamNames' => ['A'], 'rounds' => [['title' => 'R']]])
+            ->assertCreated()->assertJsonPath('extra', null)->json();
 
         $this->assertNull(Game::find($game['id'])->external_id);
+        Http::assertNothingSent();
+    }
 
-        $manual = $this->postJson('/api/games', [
-            'title' => 'Manual with id', 'externalId' => strtoupper(self::GAME_ID), 'teamNames' => ['A'], 'rounds' => [['title' => 'R']],
-        ])->assertCreated()->json();
+    public function test_manually_typed_external_id_pulls_game_details_and_needs_login_first(): void
+    {
+        $user = $this->user();
+        Http::fake([self::GAME_URL => Http::response($this->game())]);
+        $this->actingAs($user);
+
+        $payload = ['title' => 'Manual with id', 'externalId' => strtoupper(self::GAME_ID), 'teamNames' => ['A'], 'rounds' => [['title' => 'R']]];
+        $this->postJson('/api/games', $payload)->assertStatus(409)->assertJsonPath('reason', 'auth_required');
+        $this->assertSame(0, Game::count());
+
+        $user->forceFill(['quizplease_token' => 'token'])->save();
+        $manual = $this->postJson('/api/games', $payload)->assertCreated()
+            ->assertJsonPath('title', 'Manual with id')->assertJsonPath('extra.gameNumber', '42')->json();
         $this->assertSame(self::GAME_ID, Game::find($manual['id'])->external_id);
         $this->postJson('/api/games', ['title' => 'Bad', 'externalId' => 'nope', 'teamNames' => ['A'], 'rounds' => [['title' => 'R']]])
             ->assertUnprocessable()->assertJsonValidationErrors('externalId');
@@ -167,25 +185,67 @@ class QuizPleaseImportTest extends TestCase
 
     public function test_external_id_can_be_set_changed_and_cleared_when_editing(): void
     {
-        $this->actingAs($this->user());
+        Http::fake(['https://api.quizplease.com/api/games/*' => Http::response($this->game())]);
+        $this->actingAs($this->user('token'));
         $game = $this->postJson('/api/games', ['title' => 'Manual', 'teamNames' => ['A'], 'rounds' => [['title' => 'R']]])->assertCreated()->json();
         $other = $this->postJson('/api/games', ['title' => 'Other', 'externalId' => self::GAME_ID, 'teamNames' => ['A'], 'rounds' => [['title' => 'R']]])->assertCreated()->json();
         $url = "/api/games/{$game['id']}";
         $newId = '0190a1b2-0cc8-709f-8197-62881b0dbcdd';
 
         $this->patchJson($url, ['externalId' => strtoupper($newId)])->assertOk()
-            ->assertJsonPath('externalId', $newId)->assertJsonPath('title', 'Manual');
+            ->assertJsonPath('externalId', $newId)->assertJsonPath('title', 'Manual')->assertJsonPath('extra.packageNumber', '#1зумерыким');
+        Http::assertSent(fn (Request $request) => str_contains($request->url(), "/api/games/{$newId}"));
         $this->patchJson($url, ['externalId' => $newId])->assertOk();
         $this->patchJson($url, ['externalId' => 'nope'])->assertUnprocessable()->assertJsonValidationErrors('externalId');
         $this->patchJson($url, ['externalId' => self::GAME_ID])->assertUnprocessable()->assertJsonValidationErrors('externalId');
         $this->patchJson($url, ['title' => 'Renamed'])->assertOk()->assertJsonPath('externalId', $newId);
-        $this->patchJson($url, ['externalId' => null])->assertOk()->assertJsonPath('externalId', null);
+        $this->patchJson($url, ['externalId' => null])->assertOk()->assertJsonPath('externalId', null)->assertJsonPath('extra', null);
 
         // Finished games keep title and external id editable, everything else stays closed.
         $this->postJson("/api/games/{$other['id']}/finish")->assertOk();
         $this->patchJson("/api/games/{$other['id']}", ['externalId' => null, 'title' => 'Played'])->assertOk()
             ->assertJsonPath('externalId', null)->assertJsonPath('title', 'Played')->assertJsonPath('status', 'finished');
         $this->postJson("/api/games/{$other['id']}/teams", ['name' => 'Late'])->assertConflict();
+    }
+
+    public function test_unexpected_date_format_is_an_error_not_a_guess(): void
+    {
+        Http::fake([self::GAME_URL => Http::response(['data' => ['title' => 'T', 'date' => '2026-11-20T19:30:00Z', 'records' => []]])]);
+
+        $this->actingAs($this->user('token'))->getJson('/api/quizplease/game?id='.self::GAME_ID)
+            ->assertStatus(502)->assertJsonPath('reason', 'unavailable');
+    }
+
+    public function test_rating_category_and_score_flag_are_chosen_on_create_and_edit(): void
+    {
+        Http::fake(['https://rating-api.quizplease.ru/api/rating' => Http::response([
+            ['id' => 1, 'title' => 'Классический', 'code' => 'classic'],
+            ['id' => 2, 'title' => 'Кино и музыка', 'code' => 'kim'],
+        ])]);
+        $this->actingAs($this->user());
+
+        $this->getJson('/api/quizplease/rating-categories')->assertOk()->assertJsonPath('1.title', 'Кино и музыка');
+
+        $base = ['title' => 'Quiz', 'teamNames' => ['A'], 'rounds' => [['title' => 'R']]];
+        $this->postJson('/api/games', [...$base, 'ratingCategoryId' => 99])->assertUnprocessable()->assertJsonValidationErrors('ratingCategoryId');
+        $game = $this->postJson('/api/games', [...$base, 'ratingCategoryId' => 2, 'ratingIncludeScores' => false])->assertCreated()
+            ->assertJsonPath('ratingCategoryId', 2)->assertJsonPath('ratingIncludeScores', false)->json();
+        $url = "/api/games/{$game['id']}";
+
+        $this->postJson("$url/finish")->assertOk();
+        $this->patchJson($url, ['ratingCategoryId' => 1, 'ratingIncludeScores' => true])->assertOk()
+            ->assertJsonPath('ratingCategoryId', 1)->assertJsonPath('ratingIncludeScores', true);
+        $this->patchJson($url, ['ratingCategoryId' => null])->assertOk()->assertJsonPath('ratingCategoryId', null);
+        // The category list is cached, so validation does not call the rating API on every save.
+        Http::assertSentCount(1);
+    }
+
+    public function test_rating_api_failure_is_reported(): void
+    {
+        Http::fake(['https://rating-api.quizplease.ru/*' => Http::response('down', 503)]);
+
+        $this->actingAs($this->user())->getJson('/api/quizplease/rating-categories')
+            ->assertStatus(502)->assertJsonPath('reason', 'rating_unavailable');
     }
 
     public function test_endpoints_require_authentication(): void
@@ -208,7 +268,8 @@ class QuizPleaseImportTest extends TestCase
             'id' => self::GAME_ID,
             'title' => ' Квиз, плиз! ',
             'game_number' => 42,
-            'date' => '2026-11-20 19:30:00',
+            'date' => '20.11.2026 19:30',
+            'package_number' => '#1зумерыким',
             'records' => [
                 $this->record(1, 1, 10, 'Совы'),
                 $this->record(2, 0, 20, 'Не подтвердили'),

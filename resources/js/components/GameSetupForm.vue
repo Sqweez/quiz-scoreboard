@@ -5,6 +5,8 @@ import { Minus, Plus, X } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Spinner } from '~/components/ui/spinner'
 import QuizPleaseImport from '~/components/QuizPleaseImport.vue'
+import QuizPleaseLoginDialog from '~/components/QuizPleaseLoginDialog.vue'
+import RatingSettings from '~/components/RatingSettings.vue'
 import type { ExternalGame } from '~/composables/useQuizPleaseImport'
 import { MAX_ROUNDS, MIN_ROUNDS, useGameSetupForm } from '~/composables/useGameSetupForm'
 import { useQuizStore } from '~/stores/quiz'
@@ -16,6 +18,12 @@ const {
   roundsCount,
   externalId,
   externalIdError,
+  ratingCategoryId,
+  ratingIncludeScores,
+  ratingPackage,
+  isLoginOpen,
+  login,
+  cancelLogin,
   filledTeamNames,
   error,
   isSubmitting,
@@ -253,6 +261,10 @@ function handleTeamPaste(event: ClipboardEvent, id: string): void {
         </Button>
       </div>
     </section>
+
+    <RatingSettings v-model:category-id="ratingCategoryId" v-model:include-scores="ratingIncludeScores" v-model:package="ratingPackage" />
+
+    <QuizPleaseLoginDialog :open="isLoginOpen" :submit="login" @cancel="cancelLogin" />
 
     <div class="sticky bottom-0 -mx-4 space-y-3 border-t border-rule-strong bg-background px-4 py-4 lg:-mx-8 lg:px-8">
       <p v-if="error" class="text-sm text-primary">

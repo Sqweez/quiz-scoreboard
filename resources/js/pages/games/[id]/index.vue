@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ArrowLeft, Check, Copy, Pencil } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import ConfirmDialog from '~/components/ConfirmDialog.vue'
+import RatingMenu from '~/components/RatingMenu.vue'
 import ScoreTable from '~/components/ScoreTable.vue'
 import { useResultsClipboard } from '~/composables/useResultsClipboard'
 import { useQuizStore } from '~/stores/quiz'
@@ -17,12 +18,31 @@ const isDeleting = ref(false)
 const isConfirmingDelete = ref(false)
 const isFinishing = ref(false)
 const isConfirmingFinish = ref(false)
+const ratingNotice = ref('')
+let ratingNoticeTimer: ReturnType<typeof setTimeout> | null = null
 
 const { copyStatus, copyStatusText, copyResults } = useResultsClipboard()
 
 const teamsCount = computed(() => quizStore.currentGame?.teams.length ?? 0)
 const roundsCount = computed(() => quizStore.currentGame?.rounds.length ?? 0)
 const isFinished = computed(() => quizStore.currentGame?.status === 'finished')
+
+// The rating module needs the linked game's details, a category and a package; the include-scores flag always has a value.
+const canUploadRating = computed(() => {
+  const game = quizStore.currentGame
+  const extra = game?.extra
+
+  return Boolean(
+    isFinished.value
+    && game?.externalId
+    && game.ratingCategoryId !== null
+    && game.ratingPackage
+    && extra?.title
+    && extra.gameNumber
+    && extra.packageNumber
+    && extra.date
+  )
+})
 
 const metaLine = computed(() => {
   const parts: string[] = []
@@ -63,6 +83,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopNavigationGuard()
+  if (ratingNoticeTimer) {
+    clearTimeout(ratingNoticeTimer)
+  }
   window.removeEventListener('pagehide', flushScoresBeforePageHide)
   document.removeEventListener('visibilitychange', flushScoresWhenHidden)
 })
@@ -123,6 +146,19 @@ async function confirmFinish(): Promise<void> {
     isFinishing.value = false
     isConfirmingFinish.value = false
   }
+}
+
+function showRatingNotice(message: string): void {
+  ratingNotice.value = message
+
+  if (ratingNoticeTimer) {
+    clearTimeout(ratingNoticeTimer)
+  }
+
+  ratingNoticeTimer = setTimeout(() => {
+    ratingNotice.value = ''
+    ratingNoticeTimer = null
+  }, 5000)
 }
 
 function requestDelete(): void {
@@ -226,6 +262,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
                 <Check class="size-4" />
                 Завершить игру
               </Button>
+              <RatingMenu v-if="canUploadRating" @done="showRatingNotice" />
               <Button type="button" @click="shareResults">
                 <Copy class="size-4" />
                 Скопировать результаты
@@ -237,6 +274,9 @@ function pluralize(count: number, one: string, few: string, many: string): strin
               :class="copyStatus === 'error' ? 'text-primary' : 'text-muted-foreground'"
             >
               {{ copyStatusText }}
+            </span>
+            <span v-if="ratingNotice" class="text-xs text-foreground" role="status">
+              {{ ratingNotice }}
             </span>
             <Link
               :href="`/games/${quizStore.currentGame.id}/edit`"

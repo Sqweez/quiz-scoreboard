@@ -36,5 +36,6 @@
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="QUIZPLEASE_CLIENT_ID" value="test-client"/>
         <env name="QUIZPLEASE_CLIENT_SECRET" value="test-secret"/>
+        <env name="QUIZPLEASE_RATING_SYNCHRONIZE_KEY" value="test-sync-key"/>
     </php>
 </phpunit>

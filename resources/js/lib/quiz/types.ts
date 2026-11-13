@@ -13,10 +13,24 @@ export type Team = {
   scores: Record<string, number>
 }
 
+// Snapshot of the linked Quiz Please game; date is the organiser's wall-clock time without a time zone.
+export type GameExtra = {
+  title: string
+  gameNumber: string | null
+  packageNumber: string | null
+  date: string | null
+}
+
 export type GameCore = {
   id: string
   title: string
   externalId: string | null
+  extra: GameExtra | null
+  ratingCategoryId: number | null
+  ratingIncludeScores: boolean
+  ratingPackage: string | null
+  ratingCreatedAt: string | null
+  ratingUploadedAt: string | null
   status: GameStatus
   rounds: Round[]
   teams: Team[]
@@ -36,6 +50,7 @@ export type GameSummary = {
   roundsCount: number
   updatedAt: string
   finishedAt: string | null
+  ratingStatus: 'uploaded' | 'created' | null
 }
 
 export type ResourceCollection<T> = {
@@ -53,6 +68,9 @@ export type PaginatedResourceCollection<T> = ResourceCollection<T> & {
 export type CreateGameInput = {
   title: string
   externalId?: string
+  ratingCategoryId: number | null
+  ratingIncludeScores: boolean
+  ratingPackage: string | null
   teamNames: string[]
   rounds: Array<{
     title: string

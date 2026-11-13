@@ -38,10 +38,6 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: composer install --prefer-dist --no-interaction
-      - name: Create synthetic import source database
-        env:
-          PGPASSWORD: quiz
-        run: psql -h 127.0.0.1 -p 55439 -U quiz -d quiz_test -c 'CREATE DATABASE quiz_source'
       - name: Run backend tests
         run: |
           cp .env.example .env

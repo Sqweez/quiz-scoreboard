@@ -209,7 +209,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
 </script>
 
 <template>
-  <main class="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 sm:gap-8 lg:gap-10 px-4 py-6 sm:py-8 lg:px-8 lg:py-12">
+  <main class="mx-auto flex min-h-screen w-full min-w-0 max-w-5xl flex-col gap-6 sm:gap-8 lg:gap-10 px-4 py-6 sm:py-8 lg:px-8 lg:py-12">
     <template v-if="quizStore.currentGame">
       <Link
         href="/"
@@ -220,14 +220,14 @@ function pluralize(count: number, one: string, few: string, many: string): strin
       </Link>
 
       <header class="border-b border-rule-strong pb-6">
-        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 eyebrow text-muted-foreground">
+        <div class="flex flex-wrap items-baseline gap-x-2 gap-y-2 eyebrow-tight sm:gap-x-3 text-muted-foreground">
           <span>{{ isFinished ? 'Завершено' : 'Идёт игра' }}</span>
           <span aria-hidden="true">·</span>
           <span>{{ metaLine }}</span>
-          <span v-if="quizStore.scoreSyncText" aria-hidden="true">·</span>
+          <span v-if="quizStore.scoreSyncText" aria-hidden="true" class="hidden sm:inline">·</span>
           <span
             v-if="quizStore.scoreSyncText"
-            class="normal-case tracking-normal"
+            class="basis-full normal-case tracking-normal sm:basis-auto"
             :class="{
               'text-foreground': quizStore.scoreSyncTone === 'saved',
               'text-primary': quizStore.scoreSyncTone === 'error',
@@ -238,7 +238,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
           </span>
         </div>
 
-        <div class="mt-4 flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <div class="mt-4 flex flex-col gap-4 sm:gap-6">
           <label class="w-full min-w-0 flex-1 text-foreground">
             <span class="sr-only">Название игры</span>
             <input
@@ -251,13 +251,13 @@ function pluralize(count: number, one: string, few: string, many: string): strin
             >
           </label>
 
-          <div class="flex w-full flex-col items-start gap-2.5 sm:w-auto lg:items-end">
-            <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap lg:justify-end">
+          <div class="flex w-full min-w-0 flex-col items-start gap-2.5">
+            <div class="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
               <Button
                 v-if="!isFinished"
                 type="button"
                 variant="outline"
-                class="w-full justify-center sm:w-auto"
+                class="min-h-11 w-full justify-center sm:w-auto"
                 @click="requestFinish"
               >
                 <Check class="size-4" />
@@ -266,7 +266,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
               <RatingMenu v-if="canUploadRating" @done="showRatingNotice" />
               <Button
                 type="button"
-                class="w-full justify-center sm:w-auto"
+                class="min-h-11 w-full justify-center sm:w-auto"
                 @click="shareResults"
               >
                 <Copy class="size-4" />
@@ -285,7 +285,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
             </span>
             <Link
               :href="`/games/${quizStore.currentGame.id}/edit`"
-              class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground py-0.5"
+              class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground min-h-11 py-2"
             >
               <Pencil class="size-3.5" />
               {{ isFinished ? 'Настройки игры' : 'Команды и раунды' }}
@@ -329,7 +329,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
       <footer class="flex flex-wrap items-center justify-end gap-4 border-t border-rule pt-6 text-sm">
         <button
           type="button"
-          class="text-muted-foreground underline decoration-rule underline-offset-4 transition-colors hover:text-primary hover:decoration-primary"
+          class="min-h-11 text-muted-foreground underline decoration-rule underline-offset-4 transition-colors hover:text-primary hover:decoration-primary"
           @click="requestDelete"
         >
           Удалить игру

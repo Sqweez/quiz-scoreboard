@@ -149,6 +149,42 @@ describe('mobile and tablet adaptive layout', () => {
   })
 })
 
+describe('ranking changes', () => {
+  it.each(['desktop', 'По раундам', 'По командам', 'Таблица'])(
+    'preserves the edited input and reorders teams after blur in %s',
+    async (mode) => {
+      const store = useQuizStore()
+      store.currentGame!.teams.push({ id: 'team-2', name: 'Beta', scores: { 'round-1': 5 } })
+      await nextTick()
+      if (mode !== 'desktop') {
+        const button = Array.from(container.querySelectorAll('button')).find(
+          button => button.textContent?.trim() === mode
+        )!
+        button.click()
+        await nextTick()
+      }
+      const inputs = Array.from(container.querySelectorAll<HTMLInputElement>('input')).filter(
+        input => input.getAttribute('aria-label')?.includes('Alpha')
+      )
+      const input = mode === 'desktop' ? inputs[0]! : inputs[1]!
+      const group = input.closest('tbody') ?? (mode === 'По командам'
+        ? input.closest('.rounded-xl')!.parentElement!
+        : input.parentElement!.parentElement!.parentElement!)
+      input.focus()
+      await nextTick()
+      await enterScore(input, '8')
+      expect(group.textContent!.indexOf('Beta')).toBeLessThan(group.textContent!.indexOf('Alpha'))
+      expect(document.activeElement).toBe(input)
+      input.blur()
+      await nextTick()
+      await nextTick()
+      expect(group.textContent!.indexOf('Alpha')).toBeLessThan(group.textContent!.indexOf('Beta'))
+      expect(group.contains(input)).toBe(true)
+      expect(input.value).toBe('8')
+    }
+  )
+})
+
 async function enterScore(input: HTMLInputElement, value: string): Promise<void> {
   input.value = value
   input.dispatchEvent(new Event('input', { bubbles: true }))

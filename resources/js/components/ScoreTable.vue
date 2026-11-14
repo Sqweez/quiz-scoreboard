@@ -137,7 +137,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="relative w-full min-w-0 max-w-full">
-    <!-- Desktop View (>= 1024px) - completely unchanged -->
+    <!-- Desktop View (>= 1024px) -->
     <div class="hidden lg:block">
       <!--
         Sticky heads-up of which team is being edited. Sits above the table and
@@ -146,13 +146,13 @@ onBeforeUnmount(() => {
       -->
       <div
         aria-live="polite"
-        class="sticky top-0 z-20 -mt-px flex items-baseline gap-3 border-b border-rule-strong bg-background/95 py-3 backdrop-blur transition-opacity duration-150"
+        class="sticky top-0 z-20 -mt-px flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-rule-strong bg-background/95 py-3 backdrop-blur transition-opacity duration-150"
         :class="activeContext ? 'opacity-100' : 'pointer-events-none opacity-0'"
       >
         <span class="eyebrow text-primary">
           Редактируем
         </span>
-        <span class="font-display text-2xl font-semibold leading-none text-foreground">
+        <span class="min-w-0 break-words font-display text-2xl font-semibold leading-tight text-foreground">
           {{ activeContext?.teamName ?? ' ' }}
         </span>
         <span v-if="activeContext" class="text-sm text-muted-foreground">
@@ -160,7 +160,7 @@ onBeforeUnmount(() => {
         </span>
       </div>
 
-      <div class="overflow-x-auto">
+      <div tabindex="0" role="region" aria-label="Таблица результатов" class="max-w-full overflow-x-auto overscroll-x-contain focus-visible:outline-2 focus-visible:outline-primary">
         <table class="w-full border-collapse text-foreground">
           <colgroup>
             <col class="w-10">
@@ -204,7 +204,7 @@ onBeforeUnmount(() => {
             </tr>
           </thead>
 
-          <tbody>
+          <TransitionGroup tag="tbody" name="team-rank">
             <tr
               v-for="(team, index) in visibleTeams"
               :key="team.id"
@@ -282,7 +282,7 @@ onBeforeUnmount(() => {
               </td>
             </tr>
 
-            <tr v-if="visibleTeams.length === 0">
+            <tr v-if="visibleTeams.length === 0" key="empty">
               <td
                 :colspan="3 + (quizStore.currentGame?.rounds.length ?? 0)"
                 class="py-12 text-center text-sm text-muted-foreground"
@@ -290,7 +290,7 @@ onBeforeUnmount(() => {
                 Добавьте команды и раунды, чтобы начать.
               </td>
             </tr>
-          </tbody>
+          </TransitionGroup>
         </table>
       </div>
     </div>
@@ -298,10 +298,10 @@ onBeforeUnmount(() => {
     <!-- Mobile / Tablet View (< 1024px) -->
     <div class="block lg:hidden w-full min-w-0 max-w-full">
       <!-- Mode Switcher -->
-      <div class="mb-4 flex items-center rounded-xl border border-rule bg-secondary/60 p-1">
+      <div class="mb-4 grid grid-cols-3 items-center rounded-md border border-rule bg-secondary/60 p-1">
         <button
           type="button"
-          class="flex-1 flex items-center justify-center h-10 px-1 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap text-center"
+          class="flex-1 flex items-center justify-center h-11 min-w-0 px-1 rounded-sm text-xs sm:text-sm font-medium transition-all whitespace-nowrap text-center"
           :class="mobileMode === 'round'
             ? 'bg-background font-bold text-foreground shadow-sm'
             : 'text-muted-foreground hover:text-foreground active:scale-95'"
@@ -311,7 +311,7 @@ onBeforeUnmount(() => {
         </button>
         <button
           type="button"
-          class="flex-1 flex items-center justify-center h-10 px-1 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap text-center"
+          class="flex-1 flex items-center justify-center h-11 min-w-0 px-1 rounded-sm text-xs sm:text-sm font-medium transition-all whitespace-nowrap text-center"
           :class="mobileMode === 'team'
             ? 'bg-background font-bold text-foreground shadow-sm'
             : 'text-muted-foreground hover:text-foreground active:scale-95'"
@@ -321,7 +321,7 @@ onBeforeUnmount(() => {
         </button>
         <button
           type="button"
-          class="flex-1 flex items-center justify-center h-10 px-1 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap text-center"
+          class="flex-1 flex items-center justify-center h-11 min-w-0 px-1 rounded-sm text-xs sm:text-sm font-medium transition-all whitespace-nowrap text-center"
           :class="mobileMode === 'table'
             ? 'bg-background font-bold text-foreground shadow-sm'
             : 'text-muted-foreground hover:text-foreground active:scale-95'"
@@ -338,7 +338,7 @@ onBeforeUnmount(() => {
       <!-- Mode 1: By Round -->
       <div v-else-if="mobileMode === 'round'">
         <!-- Scrollable round tabs -->
-        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar overscroll-x-contain pb-2 w-full max-w-full">
+        <div class="flex items-center gap-2 overflow-x-auto overscroll-x-contain pb-2 w-full max-w-full">
           <button
             v-for="(round, roundIndex) in quizStore.currentGame?.rounds"
             :key="round.id"
@@ -359,7 +359,7 @@ onBeforeUnmount(() => {
         <!-- Active round banner with quick prev/next navigation -->
         <div v-if="activeRound" class="mt-3 flex items-center justify-between gap-3 rounded-xl border border-rule bg-secondary/40 p-3">
           <div class="min-w-0 flex-1">
-            <div class="truncate font-display text-base sm:text-lg font-bold text-foreground">
+            <div class="break-words font-display text-base sm:text-lg font-bold text-foreground">
               Раунд {{ activeRoundIndex + 1 }}
             </div>
             <div v-if="activeRound.maxScore !== null && activeRound.maxScore !== undefined" class="text-xs sm:text-sm text-muted-foreground">
@@ -389,7 +389,7 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- Teams list for active round -->
-        <div v-if="activeRound" class="mt-4 divide-y divide-rule border-y border-rule w-full min-w-0">
+        <TransitionGroup v-if="activeRound" tag="div" name="team-rank" class="mt-4 divide-y divide-rule border-y border-rule w-full min-w-0">
           <div
             v-for="(team, index) in visibleTeams"
             :key="team.id"
@@ -409,7 +409,7 @@ onBeforeUnmount(() => {
               </span>
               <div class="min-w-0 flex-1">
                 <div
-                  class="truncate font-display text-base sm:text-lg font-semibold leading-tight text-foreground"
+                  class="break-words font-display text-base sm:text-lg font-semibold leading-tight text-foreground"
                   :class="{ 'font-bold': index === 0 }"
                 >
                   {{ team.name }}
@@ -424,7 +424,7 @@ onBeforeUnmount(() => {
               <input
                 type="text"
                 inputmode="decimal"
-                class="h-12 w-22 sm:w-24 rounded-lg border-2 border-rule bg-background px-2 text-center font-display text-2xl font-bold tabular-nums text-foreground outline-none transition-colors hover:border-rule-strong focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+                class="h-12 w-18 sm:w-24 rounded-lg border-2 border-rule bg-background px-2 text-center font-display text-2xl font-bold tabular-nums text-foreground outline-none transition-colors hover:border-rule-strong focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                 :value="scoreValue(team, activeRound.id)"
                 :disabled="props.readOnly"
                 :aria-label="`Баллы команды ${team.name} в раунде ${activeRound.title}`"
@@ -437,7 +437,7 @@ onBeforeUnmount(() => {
               >
             </div>
           </div>
-        </div>
+        </TransitionGroup>
 
         <!-- Bottom prev/next round buttons -->
         <div
@@ -466,15 +466,15 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Mode 2: By Team -->
-      <div v-else-if="mobileMode === 'team'" class="flex flex-col gap-3.5 w-full min-w-0">
+      <TransitionGroup v-else-if="mobileMode === 'team'" tag="div" name="team-rank" class="flex flex-col gap-3.5 w-full min-w-0">
         <div
           v-for="(team, index) in visibleTeams"
           :key="team.id"
           class="rounded-xl border border-rule bg-background p-4 transition-colors focus-within:border-primary focus-within:bg-primary/[0.03] w-full min-w-0"
           :class="{ 'bg-secondary/25': index % 2 === 1 }"
         >
-          <div class="mb-3 flex items-center justify-between gap-2 border-b border-rule pb-2.5">
-            <div class="flex min-w-0 flex-1 items-center gap-2">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-2 border-b border-rule pb-2.5">
+            <div class="flex min-w-0 flex-1 basis-40 items-center gap-2">
               <span class="flex shrink-0 items-center gap-1 font-display text-sm tabular-nums">
                 <span
                   v-if="index === 0"
@@ -485,7 +485,7 @@ onBeforeUnmount(() => {
                   #{{ index + 1 }}
                 </span>
               </span>
-              <div class="truncate font-display text-base sm:text-lg font-bold leading-tight text-foreground">
+              <div class="break-words font-display text-base sm:text-lg font-bold leading-tight text-foreground">
                 {{ team.name }}
               </div>
             </div>
@@ -495,7 +495,7 @@ onBeforeUnmount(() => {
           </div>
 
           <!-- Horizontal scrollable rounds row for this team (scales up to 15+ rounds smoothly) -->
-          <div class="flex gap-2.5 overflow-x-auto no-scrollbar overscroll-x-contain pb-1.5 pt-0.5 w-full max-w-full">
+          <div class="flex gap-2.5 overflow-x-auto overscroll-x-contain pb-1.5 pt-0.5 w-full max-w-full">
             <div
               v-for="(round, roundIndex) in quizStore.currentGame?.rounds"
               :key="round.id"
@@ -521,17 +521,17 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </div>
-      </div>
+      </TransitionGroup>
 
-      <!-- Mode 3: Table with sticky team column (Enhanced for large touch targets) -->
-      <div v-else-if="mobileMode === 'table'" class="w-full max-w-full overflow-x-auto overscroll-x-contain rounded-xl border border-rule">
+      <!-- Mode 3: Only the score columns scroll; team names stay visible. -->
+      <div v-else-if="mobileMode === 'table'" tabindex="0" role="region" aria-label="Таблица результатов, прокрутка по горизонтали" class="w-full max-w-full overflow-x-auto overscroll-x-contain border-y border-rule">
         <table class="w-full border-collapse text-foreground">
           <thead>
             <tr class="border-b border-rule-strong eyebrow-tight text-muted-foreground">
-              <th scope="col" class="sticky left-0 z-10 bg-background py-3.5 pl-3 pr-2 text-left font-semibold min-w-10">
+              <th scope="col" class="sticky left-0 z-10 w-10 min-w-10 max-w-10 bg-background py-3.5 pl-3 pr-2 text-left font-semibold min-w-10">
                 №
               </th>
-              <th scope="col" class="sticky left-10 z-10 min-w-36 max-w-52 border-r border-rule bg-background py-3.5 pl-2 pr-3 text-left font-semibold">
+              <th scope="col" class="sticky left-10 z-10 w-28 min-w-28 max-w-28 sm:w-40 sm:min-w-40 sm:max-w-40 border-r border-rule bg-background py-3.5 pl-2 pr-3 text-left font-semibold">
                 Команда
               </th>
               <th scope="col" class="border-r border-rule py-3.5 px-3 text-right font-semibold min-w-14">
@@ -552,14 +552,14 @@ onBeforeUnmount(() => {
               </th>
             </tr>
           </thead>
-          <tbody>
+          <TransitionGroup tag="tbody" name="team-rank">
             <tr
               v-for="(team, index) in visibleTeams"
               :key="team.id"
               class="border-b border-rule transition-colors focus-within:!bg-primary/[0.07]"
               :class="{ 'bg-secondary/35': index % 2 === 1 }"
             >
-              <td class="sticky left-0 z-10 py-3.5 pl-3 pr-2 align-middle" :class="index % 2 === 1 ? 'bg-secondary' : 'bg-background'">
+              <td class="sticky left-0 z-10 w-10 min-w-10 max-w-10 py-3.5 pl-3 pr-2 align-middle" :class="index % 2 === 1 ? 'bg-secondary' : 'bg-background'">
                 <span class="flex items-center gap-1 font-display text-sm tabular-nums">
                   <span v-if="index === 0" aria-hidden="true" class="inline-block size-1.5 rounded-full bg-leader" />
                   <span :class="index === 0 ? 'font-bold text-foreground' : 'font-medium text-foreground/70'">
@@ -568,7 +568,7 @@ onBeforeUnmount(() => {
                 </span>
               </td>
               <td
-                class="sticky left-10 z-10 min-w-36 max-w-52 truncate border-r border-rule py-3.5 pl-2 pr-3 align-middle"
+                class="sticky left-10 z-10 w-28 min-w-28 max-w-28 sm:w-40 sm:min-w-40 sm:max-w-40 break-words whitespace-normal border-r border-rule py-3.5 pl-2 pr-3 align-middle"
                 :class="index % 2 === 1 ? 'bg-secondary' : 'bg-background'"
               >
                 <span class="font-display text-sm sm:text-base leading-tight text-foreground" :class="index === 0 ? 'font-bold' : 'font-semibold'">
@@ -601,9 +601,21 @@ onBeforeUnmount(() => {
                 >
               </td>
             </tr>
-          </tbody>
+          </TransitionGroup>
         </table>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.team-rank-move {
+  transition: transform 280ms ease-out, background-color 150ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .team-rank-move {
+    transition: none;
+  }
+}
+</style>

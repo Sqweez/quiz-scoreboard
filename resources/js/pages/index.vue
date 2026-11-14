@@ -128,7 +128,7 @@ async function signOut(): Promise<void> {
 </script>
 
 <template>
-  <main class="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-10 px-4 py-8 lg:px-8 lg:py-12">
+  <main class="mx-auto flex min-h-screen w-full max-w-5xl flex-col min-w-0 gap-6 px-4 py-6 sm:gap-10 sm:py-8 lg:px-8 lg:py-12">
     <header class="flex flex-wrap items-end justify-between gap-6 border-b border-rule-strong pb-6">
       <div class="space-y-3">
         <p class="eyebrow text-muted-foreground">
@@ -208,7 +208,7 @@ async function signOut(): Promise<void> {
     </section>
 
     <template v-else>
-      <section v-if="activeGames.length > 0" class="space-y-3">
+      <section v-if="activeGames.length > 0" class="min-w-0 space-y-3">
         <div class="flex items-baseline justify-between gap-3 border-b border-rule-strong pb-2">
           <h2 class="eyebrow text-muted-foreground">
             Идут сейчас
@@ -224,7 +224,7 @@ async function signOut(): Promise<void> {
               class="group flex items-center justify-between gap-4 py-4 transition-colors hover:bg-secondary/40"
             >
               <div class="min-w-0 flex-1">
-                <p class="font-display text-2xl font-medium leading-tight">
+                <p class="break-words font-display text-xl font-medium leading-tight sm:text-2xl">
                   {{ game.title }}
                 </p>
                 <p class="mt-1 eyebrow-tight text-muted-foreground">
@@ -240,7 +240,7 @@ async function signOut(): Promise<void> {
         </ul>
       </section>
 
-      <section v-if="finishedPage && hasFinishedGames" class="space-y-3">
+      <section v-if="finishedPage && hasFinishedGames" class="min-w-0 space-y-3">
         <div class="flex items-baseline justify-between gap-3 border-b border-rule-strong pb-2">
           <h2 class="eyebrow text-muted-foreground">
             Завершённые
@@ -257,9 +257,9 @@ async function signOut(): Promise<void> {
         <p v-if="finishedPage.meta.total === 0" class="py-6 text-sm text-muted-foreground">
           Ничего не найдено
         </p>
-        <div v-else class="overflow-x-auto" :class="{ 'opacity-60': isFinishedPageLoading }">
-          <table class="w-full border-collapse text-foreground">
-            <thead>
+        <div v-else class="min-w-0" :class="{ 'opacity-60': isFinishedPageLoading }">
+          <table class="block w-full border-collapse text-foreground md:table">
+            <thead class="hidden md:table-header-group">
               <tr class="border-b border-rule eyebrow-tight text-muted-foreground">
                 <th scope="col" class="py-3 pr-3 text-left font-medium">Игра</th>
                 <th scope="col" class="px-3 py-3 text-right font-medium">Команд</th>
@@ -268,28 +268,31 @@ async function signOut(): Promise<void> {
                 <th scope="col" class="py-3 pl-3 text-right font-medium">Дата</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-rule">
+            <tbody class="block divide-y divide-rule md:table-row-group">
               <tr
                 v-for="game in finishedPage.data"
                 :key="game.id"
-                class="cursor-pointer transition-colors hover:bg-secondary/40"
+                class="grid grid-cols-2 gap-x-4 gap-y-1.5 py-4 transition-colors hover:bg-secondary/40 md:table-row md:cursor-pointer md:py-0"
                 @click="router.visit(`/games/${game.id}`)"
               >
-                <td class="py-3.5 pr-3 align-middle">
-                  <Link :href="`/games/${game.id}`" class="font-display text-xl leading-tight" @click.stop>
+                <td class="col-span-2 min-w-0 align-middle md:py-3.5 md:pr-3">
+                  <Link :href="`/games/${game.id}`" class="block wrap-anywhere py-1 font-display text-xl leading-tight focus-visible:outline-2 focus-visible:outline-primary md:inline md:py-0" @click.stop>
                     {{ game.title }}
                   </Link>
                 </td>
-                <td class="px-3 py-3.5 text-right align-middle text-sm text-muted-foreground">
+                <td class="text-sm text-muted-foreground md:px-3 md:py-3.5 md:text-right md:align-middle">
+                  <span class="md:hidden">Команд: </span>
                   {{ game.teamsCount }}
                 </td>
-                <td class="px-3 py-3.5 text-right align-middle text-sm text-muted-foreground">
+                <td class="text-sm text-muted-foreground md:px-3 md:py-3.5 md:text-right md:align-middle">
+                  <span class="md:hidden">Раундов: </span>
                   {{ game.roundsCount }}
                 </td>
                 <td
-                  class="whitespace-nowrap px-3 py-3.5 align-middle text-sm"
+                  class="col-span-2 flex flex-wrap items-center gap-x-1 text-sm md:table-cell md:whitespace-nowrap md:px-3 md:py-3.5 md:align-middle"
                   :class="game.ratingStatus === 'uploaded' ? 'text-foreground' : 'text-muted-foreground'"
                 >
+                  <span class="text-muted-foreground md:hidden">Рейтинг:</span>
                   <span v-if="game.ratingStatus === 'uploaded'" class="inline-flex items-center gap-1.5">
                     <Check class="size-3.5" />
                     Загружен
@@ -297,7 +300,7 @@ async function signOut(): Promise<void> {
                   <template v-else-if="game.ratingStatus === 'created'">Игра создана</template>
                   <template v-else>—</template>
                 </td>
-                <td class="whitespace-nowrap py-3.5 pl-3 text-right align-middle text-sm text-muted-foreground">
+                <td class="col-span-2 row-start-2 text-sm text-muted-foreground md:whitespace-nowrap md:py-3.5 md:pl-3 md:text-right md:align-middle">
                   {{ dateFormat.format(new Date(game.finishedAt!)) }}
                 </td>
               </tr>
@@ -317,7 +320,7 @@ async function signOut(): Promise<void> {
             <ArrowLeft class="size-3.5" />
             Назад
           </Button>
-          <span class="eyebrow-tight text-muted-foreground">
+          <span class="shrink-0 text-xs tabular-nums text-muted-foreground sm:text-sm">
             {{ finishedPage.meta.current_page }} из {{ finishedPage.meta.last_page }}
           </span>
           <Button

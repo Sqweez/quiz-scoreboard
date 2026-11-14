@@ -209,7 +209,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
 </script>
 
 <template>
-  <main class="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-10 px-4 py-8 lg:px-8 lg:py-12">
+  <main class="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 sm:gap-8 lg:gap-10 px-4 py-6 sm:py-8 lg:px-8 lg:py-12">
     <template v-if="quizStore.currentGame">
       <Link
         href="/"
@@ -238,32 +238,37 @@ function pluralize(count: number, one: string, few: string, many: string): strin
           </span>
         </div>
 
-        <div class="mt-4 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <label class="flex-1 text-foreground">
+        <div class="mt-4 flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <label class="w-full min-w-0 flex-1 text-foreground">
             <span class="sr-only">Название игры</span>
             <input
               v-model="titleDraft"
               type="text"
-              class="editable font-display w-full text-4xl font-medium leading-tight tracking-tight lg:text-5xl"
+              class="editable font-display w-full min-w-0 text-2xl sm:text-4xl lg:text-5xl font-medium leading-tight tracking-tight"
               :aria-invalid="Boolean(titleError)"
               @blur="commitTitle"
               @keydown="handleTitleKeydown"
             >
           </label>
 
-          <div class="flex flex-col items-start gap-2 lg:items-end">
-            <div class="flex flex-wrap gap-2 lg:justify-end">
+          <div class="flex w-full flex-col items-start gap-2.5 sm:w-auto lg:items-end">
+            <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap lg:justify-end">
               <Button
                 v-if="!isFinished"
                 type="button"
                 variant="outline"
+                class="w-full justify-center sm:w-auto"
                 @click="requestFinish"
               >
                 <Check class="size-4" />
                 Завершить игру
               </Button>
               <RatingMenu v-if="canUploadRating" @done="showRatingNotice" />
-              <Button type="button" @click="shareResults">
+              <Button
+                type="button"
+                class="w-full justify-center sm:w-auto"
+                @click="shareResults"
+              >
                 <Copy class="size-4" />
                 Скопировать результаты
               </Button>
@@ -280,7 +285,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
             </span>
             <Link
               :href="`/games/${quizStore.currentGame.id}/edit`"
-              class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground py-0.5"
             >
               <Pencil class="size-3.5" />
               {{ isFinished ? 'Настройки игры' : 'Команды и раунды' }}

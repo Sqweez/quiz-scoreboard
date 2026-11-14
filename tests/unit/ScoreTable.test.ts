@@ -82,6 +82,73 @@ describe('decimal score entry', () => {
   })
 })
 
+describe('mobile and tablet adaptive layout', () => {
+  it('switches between round, team, and table modes on mobile', async () => {
+    const modeButtons = Array.from(container.querySelectorAll('button')).filter(b =>
+      ['По раундам', 'По командам', 'Таблица'].includes(b.textContent?.trim() ?? '')
+    )
+    expect(modeButtons).toHaveLength(3)
+
+    // Default is round mode
+    expect(container.textContent).toContain('Раунд 1: Round')
+
+    // Switch to team mode
+    const teamBtn = modeButtons.find(b => b.textContent?.trim() === 'По командам')!
+    teamBtn.click()
+    await nextTick()
+    expect(container.textContent).toContain('Alpha')
+    expect(container.textContent).toContain('Р1')
+
+    // Switch to table mode
+    const tableBtn = modeButtons.find(b => b.textContent?.trim() === 'Таблица')!
+    tableBtn.click()
+    await nextTick()
+    const stickyHeader = container.querySelector('th.sticky')
+    expect(stickyHeader).not.toBeNull()
+  })
+
+  it('navigates between rounds in mobile round mode and enters scores', async () => {
+    // Setup game with multiple rounds
+    const store = useQuizStore()
+    if (store.currentGame) {
+      store.currentGame.rounds = [
+        { id: 'round-1', title: 'Start', maxScore: 6 },
+        { id: 'round-2', title: 'Music', maxScore: 6 }
+      ]
+      store.currentGame.teams = [
+        { id: 'team-1', name: 'Alpha', scores: { 'round-1': 4, 'round-2': 5 } }
+      ]
+    }
+    await nextTick()
+
+    // Mode is 'round'
+    expect(container.textContent).toContain('Раунд 1: Start')
+
+    // Switch to round 2 via next button
+    const nextBtn = Array.from(container.querySelectorAll('button')).find(b =>
+      b.textContent?.includes('Р2 →')
+    )
+    expect(nextBtn).toBeDefined()
+    nextBtn?.click()
+    await nextTick()
+    expect(container.textContent).toContain('Раунд 2: Music')
+
+    // Input in round 2 should show team's score
+    const roundInputs = Array.from(container.querySelectorAll('input')).filter(
+      i => i.getAttribute('aria-label')?.includes('Music')
+    )
+    expect(roundInputs.length).toBeGreaterThan(0)
+    const mobileInput = roundInputs[0]
+    expect(mobileInput.value).toBe('5')
+
+    mobileInput.focus()
+    await nextTick()
+    await enterScore(mobileInput, '6')
+    await vi.advanceTimersByTimeAsync(350)
+    expect(store.currentGame?.teams[0]?.scores['round-2']).toBe(6)
+  })
+})
+
 async function enterScore(input: HTMLInputElement, value: string): Promise<void> {
   input.value = value
   input.dispatchEvent(new Event('input', { bubbles: true }))

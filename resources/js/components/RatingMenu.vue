@@ -85,7 +85,12 @@ async function downloadTable(): Promise<void> {
   <template v-if="game">
     <DropdownMenuRoot :modal="false">
       <DropdownMenuTrigger as-child>
-        <Button type="button" variant="outline" :disabled="isBusy">
+        <Button
+          type="button"
+          variant="outline"
+          :disabled="isBusy"
+          class="w-full justify-center sm:w-auto"
+        >
           <Spinner v-if="isBusy" />
           <Trophy v-else class="size-4" />
           Рейтинг

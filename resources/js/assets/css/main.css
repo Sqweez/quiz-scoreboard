@@ -100,9 +100,12 @@ body {
   overflow-x: clip;
 }
 
-button,
-input {
-  font: inherit;
+/* Layered so Tailwind font utilities (font-display, text-xl) still apply to inputs and buttons. */
+@layer base {
+  button,
+  input {
+    font: inherit;
+  }
 }
 
 input[type='number'] {

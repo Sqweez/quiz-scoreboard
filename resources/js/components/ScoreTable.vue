@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { useQuizStore } from '../stores/quiz'
@@ -15,8 +15,28 @@ const { visibleTeams, freezeCurrentOrder, releaseCurrentOrder } = usePinnedTeamO
   () => quizStore.sortedTeams
 )
 
-const mobileMode = ref<'round' | 'team' | 'table'>('round')
+type MobileMode = 'round' | 'team' | 'table'
+
+const mobileModes: { value: MobileMode, label: string }[] = [
+  { value: 'round', label: 'По раундам' },
+  { value: 'team', label: 'По командам' },
+  { value: 'table', label: 'Таблица' }
+]
+const mobileMode = ref<MobileMode>('round')
 const activeRoundIndex = ref(0)
+const roundsCount = computed(() => quizStore.currentGame?.rounds.length ?? 0)
+const roundStrip = ref<HTMLElement | null>(null)
+
+// Keep the selected round chip visible when navigating with the prev/next buttons.
+watch(activeRoundIndex, async (index) => {
+  await nextTick()
+  const strip = roundStrip.value
+  const chip = strip?.children[index] as HTMLElement | undefined
+  if (!strip || !chip) {
+    return
+  }
+  strip.scrollLeft = chip.offsetLeft - (strip.clientWidth - chip.offsetWidth) / 2
+})
 
 const activeRound = computed(() => {
   const rounds = quizStore.currentGame?.rounds
@@ -110,7 +130,18 @@ function handleScoreKeydown(event: KeyboardEvent): void {
   }
 
   if (event.key === 'Enter' && event.currentTarget instanceof HTMLInputElement) {
-    event.currentTarget.blur()
+    // Inside an enter group (mobile round/team lists) Enter jumps to the next score, like a phone keyboard's "Next".
+    const input = event.currentTarget
+    const group = input.closest('[data-enter-group]')
+    const inputs = group ? Array.from(group.querySelectorAll('input')) : []
+    const next = inputs[inputs.indexOf(input) + 1]
+
+    if (next) {
+      event.preventDefault()
+      next.focus()
+    } else {
+      input.blur()
+    }
   }
 }
 
@@ -196,7 +227,7 @@ onBeforeUnmount(() => {
                 </div>
                 <div
                   v-if="round.maxScore !== null && round.maxScore !== undefined"
-                  class="mt-0.5 text-[10px] font-normal text-muted-foreground"
+                  class="mt-0.5 whitespace-nowrap text-[10px] font-normal text-muted-foreground"
                 >
                   макс. {{ round.maxScore }}
                 </div>
@@ -296,38 +327,21 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Mobile / Tablet View (< 1024px) -->
-    <div class="block lg:hidden w-full min-w-0 max-w-full">
+    <div class="block w-full min-w-0 max-w-full lg:hidden">
       <!-- Mode Switcher -->
-      <div class="mb-4 grid grid-cols-3 items-center rounded-md border border-rule bg-secondary/60 p-1">
+      <div class="mb-4 grid grid-cols-3 gap-1 rounded-md border border-rule bg-secondary/60 p-1">
         <button
+          v-for="mode in mobileModes"
+          :key="mode.value"
           type="button"
-          class="flex-1 flex items-center justify-center h-11 min-w-0 px-1 rounded-sm text-xs sm:text-sm font-medium transition-all whitespace-nowrap text-center"
-          :class="mobileMode === 'round'
-            ? 'bg-background font-bold text-foreground shadow-sm'
-            : 'text-muted-foreground hover:text-foreground active:scale-95'"
-          @click="mobileMode = 'round'"
+          class="flex h-10 min-w-0 items-center justify-center whitespace-nowrap rounded-sm px-1 text-sm font-medium transition-colors"
+          :class="mobileMode === mode.value
+            ? 'bg-background text-foreground ring-1 ring-rule'
+            : 'text-muted-foreground hover:text-foreground'"
+          :aria-pressed="mobileMode === mode.value"
+          @click="mobileMode = mode.value"
         >
-          По раундам
-        </button>
-        <button
-          type="button"
-          class="flex-1 flex items-center justify-center h-11 min-w-0 px-1 rounded-sm text-xs sm:text-sm font-medium transition-all whitespace-nowrap text-center"
-          :class="mobileMode === 'team'
-            ? 'bg-background font-bold text-foreground shadow-sm'
-            : 'text-muted-foreground hover:text-foreground active:scale-95'"
-          @click="mobileMode = 'team'"
-        >
-          По командам
-        </button>
-        <button
-          type="button"
-          class="flex-1 flex items-center justify-center h-11 min-w-0 px-1 rounded-sm text-xs sm:text-sm font-medium transition-all whitespace-nowrap text-center"
-          :class="mobileMode === 'table'
-            ? 'bg-background font-bold text-foreground shadow-sm'
-            : 'text-muted-foreground hover:text-foreground active:scale-95'"
-          @click="mobileMode = 'table'"
-        >
-          Таблица
+          {{ mode.label }}
         </button>
       </div>
 
@@ -335,96 +349,69 @@ onBeforeUnmount(() => {
         Добавьте команды и раунды, чтобы начать.
       </div>
 
-      <!-- Mode 1: By Round -->
+      <!-- Mode 1: By Round. The round strip sticks to the top so switching rounds never needs scrolling back up. -->
       <div v-else-if="mobileMode === 'round'">
-        <!-- Scrollable round tabs -->
-        <div class="flex items-center gap-2 overflow-x-auto overscroll-x-contain pb-2 w-full max-w-full">
-          <button
-            v-for="(round, roundIndex) in quizStore.currentGame?.rounds"
-            :key="round.id"
-            type="button"
-            class="flex h-11 shrink-0 items-center gap-1.5 rounded-lg border px-4 text-sm font-medium transition-all active:scale-95"
-            :class="activeRoundIndex === roundIndex
-              ? 'border-foreground bg-foreground font-bold text-background shadow-sm'
-              : 'border-rule bg-background text-muted-foreground hover:border-rule-strong hover:text-foreground'"
-            @click="activeRoundIndex = roundIndex"
-          >
-            <span>Р{{ roundIndex + 1 }}</span>
-            <span v-if="round.maxScore !== null && round.maxScore !== undefined" class="text-xs opacity-75">
-              ({{ round.maxScore }})
-            </span>
-          </button>
+        <div class="sticky top-0 z-10 -mx-4 border-b border-rule bg-background/95 px-4 py-2 backdrop-blur">
+          <div ref="roundStrip" class="no-scrollbar flex gap-1.5 overflow-x-auto overscroll-x-contain scroll-smooth">
+            <button
+              v-for="(round, roundIndex) in quizStore.currentGame?.rounds"
+              :key="round.id"
+              type="button"
+              class="h-11 min-w-12 shrink-0 rounded-md border px-3 font-display text-base tabular-nums transition-colors"
+              :class="activeRoundIndex === roundIndex
+                ? 'border-foreground bg-foreground font-semibold text-background'
+                : 'border-rule text-foreground/70 hover:border-rule-strong hover:text-foreground'"
+              :aria-current="activeRoundIndex === roundIndex ? 'true' : undefined"
+              :aria-label="`Раунд ${roundIndex + 1}`"
+              @click="activeRoundIndex = roundIndex"
+            >
+              Р{{ roundIndex + 1 }}
+            </button>
+          </div>
         </div>
 
-        <!-- Active round banner with quick prev/next navigation -->
-        <div v-if="activeRound" class="mt-3 flex items-center justify-between gap-3 rounded-xl border border-rule bg-secondary/40 p-3">
-          <div class="min-w-0 flex-1">
-            <div class="break-words font-display text-base sm:text-lg font-bold text-foreground">
+        <template v-if="activeRound">
+          <div class="mt-4 flex items-baseline justify-between gap-3 border-b border-rule-strong pb-2">
+            <h3 class="font-display text-xl font-medium leading-tight">
               Раунд {{ activeRoundIndex + 1 }}
-            </div>
-            <div v-if="activeRound.maxScore !== null && activeRound.maxScore !== undefined" class="text-xs sm:text-sm text-muted-foreground">
-              Максимум баллов: {{ activeRound.maxScore }}
-            </div>
+            </h3>
+            <span v-if="activeRound.maxScore !== null && activeRound.maxScore !== undefined" class="eyebrow-tight text-muted-foreground">
+              макс. {{ activeRound.maxScore }}
+            </span>
           </div>
-          <div class="flex shrink-0 items-center gap-1.5">
-            <Button
-              type="button"
-              variant="outline"
-              class="h-10 px-3 text-sm font-semibold active:scale-95"
-              :disabled="activeRoundIndex <= 0"
-              @click="activeRoundIndex--"
-            >
-              ← Р{{ activeRoundIndex }}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              class="h-10 px-3 text-sm font-semibold active:scale-95"
-              :disabled="!quizStore.currentGame || activeRoundIndex >= quizStore.currentGame.rounds.length - 1"
-              @click="activeRoundIndex++"
-            >
-              Р{{ activeRoundIndex + 2 }} →
-            </Button>
-          </div>
-        </div>
 
-        <!-- Teams list for active round -->
-        <TransitionGroup v-if="activeRound" tag="div" name="team-rank" class="mt-4 divide-y divide-rule border-y border-rule w-full min-w-0">
-          <div
-            v-for="(team, index) in visibleTeams"
-            :key="team.id"
-            class="flex items-center justify-between gap-3 py-3.5 transition-colors hover:bg-secondary/40 focus-within:bg-primary/[0.07]"
-            :class="{ 'bg-secondary/20': index % 2 === 1 }"
-          >
-            <div class="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
-              <span class="flex w-6 shrink-0 items-center gap-1 font-display text-base tabular-nums">
+          <TransitionGroup tag="div" name="team-rank" data-enter-group class="w-full min-w-0 divide-y divide-rule border-b border-rule">
+            <div
+              v-for="(team, index) in visibleTeams"
+              :key="team.id"
+              class="flex items-center gap-3 py-3 transition-colors focus-within:bg-primary/[0.07]"
+            >
+              <span class="flex w-7 shrink-0 items-center gap-1 font-display text-base tabular-nums">
                 <span
                   v-if="index === 0"
                   aria-hidden="true"
-                  class="inline-block size-2 rounded-full bg-leader"
+                  class="inline-block size-1.5 rounded-full bg-leader"
                 />
-                <span :class="index === 0 ? 'font-bold text-foreground' : 'font-medium text-foreground/70'">
+                <span :class="index === 0 ? 'font-semibold text-foreground' : 'font-medium text-foreground/70'">
                   {{ index + 1 }}
                 </span>
               </span>
               <div class="min-w-0 flex-1">
                 <div
-                  class="break-words font-display text-base sm:text-lg font-semibold leading-tight text-foreground"
-                  :class="{ 'font-bold': index === 0 }"
+                  class="break-words font-display text-lg leading-tight text-foreground"
+                  :class="index === 0 ? 'font-semibold' : 'font-medium'"
                 >
                   {{ team.name }}
                 </div>
-                <div class="text-xs sm:text-sm text-muted-foreground tabular-nums">
-                  Всего: <span class="font-semibold text-foreground">{{ quizStore.getTotalScore(team) }}</span>
+                <div class="mt-0.5 text-sm tabular-nums text-muted-foreground">
+                  Всего {{ quizStore.getTotalScore(team) }}
                 </div>
               </div>
-            </div>
-
-            <div class="flex shrink-0 items-center">
               <input
                 type="text"
                 inputmode="decimal"
-                class="h-12 w-18 sm:w-24 rounded-lg border-2 border-rule bg-background px-2 text-center font-display text-2xl font-bold tabular-nums text-foreground outline-none transition-colors hover:border-rule-strong focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+                :enterkeyhint="index < visibleTeams.length - 1 ? 'next' : 'done'"
+                class="h-12 w-20 shrink-0 scroll-mt-20 rounded-md border-2 border-rule bg-background px-2 text-center font-display text-2xl font-semibold tabular-nums text-foreground outline-none transition-colors hover:border-rule-strong focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                 :value="scoreValue(team, activeRound.id)"
                 :disabled="props.readOnly"
                 :aria-label="`Баллы команды ${team.name} в раунде ${activeRound.title}`"
@@ -436,78 +423,85 @@ onBeforeUnmount(() => {
                 @wheel="preventWheelStep"
               >
             </div>
-          </div>
-        </TransitionGroup>
+          </TransitionGroup>
 
-        <!-- Bottom prev/next round buttons -->
-        <div
-          v-if="activeRound && quizStore.currentGame && quizStore.currentGame.rounds.length > 1"
-          class="mt-6 flex items-center justify-between gap-2 sm:gap-3"
-        >
-          <Button
-            type="button"
-            variant="outline"
-            class="h-11 flex-1 px-2 text-xs sm:text-sm font-semibold active:scale-98"
-            :disabled="activeRoundIndex <= 0"
-            @click="activeRoundIndex--"
+          <div
+            v-if="roundsCount > 1"
+            class="mt-6 grid grid-cols-2 gap-2"
           >
-            ← Предыдущий
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            class="h-11 flex-1 px-2 text-xs sm:text-sm font-semibold active:scale-98"
-            :disabled="activeRoundIndex >= quizStore.currentGame.rounds.length - 1"
-            @click="activeRoundIndex++"
-          >
-            Следующий →
-          </Button>
-        </div>
+            <Button
+              v-if="activeRoundIndex > 0"
+              type="button"
+              variant="outline"
+              class="h-12 justify-start"
+              @click="activeRoundIndex--"
+            >
+              <ChevronLeft class="size-4" />
+              Раунд {{ activeRoundIndex }}
+            </Button>
+            <span v-else />
+            <Button
+              v-if="activeRoundIndex < roundsCount - 1"
+              type="button"
+              variant="outline"
+              class="h-12 justify-end"
+              @click="activeRoundIndex++"
+            >
+              Раунд {{ activeRoundIndex + 2 }}
+              <ChevronRight class="size-4" />
+            </Button>
+          </div>
+        </template>
       </div>
 
-      <!-- Mode 2: By Team -->
-      <TransitionGroup v-else-if="mobileMode === 'team'" tag="div" name="team-rank" class="flex flex-col gap-3.5 w-full min-w-0">
-        <div
+      <!-- Mode 2: By Team. Rounds wrap into a grid so every round is visible without sideways scrolling. -->
+      <TransitionGroup v-else-if="mobileMode === 'team'" tag="div" name="team-rank" class="w-full min-w-0 divide-y divide-rule border-y border-rule">
+        <section
           v-for="(team, index) in visibleTeams"
           :key="team.id"
-          class="rounded-xl border border-rule bg-background p-4 transition-colors focus-within:border-primary focus-within:bg-primary/[0.03] w-full min-w-0"
-          :class="{ 'bg-secondary/25': index % 2 === 1 }"
+          class="py-4 transition-colors focus-within:bg-primary/[0.04]"
         >
-          <div class="mb-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-2 border-b border-rule pb-2.5">
-            <div class="flex min-w-0 flex-1 basis-40 items-center gap-2">
-              <span class="flex shrink-0 items-center gap-1 font-display text-sm tabular-nums">
+          <div class="flex items-baseline justify-between gap-3">
+            <div class="flex min-w-0 items-baseline gap-2">
+              <span class="flex shrink-0 items-center gap-1 font-display text-base tabular-nums">
                 <span
                   v-if="index === 0"
                   aria-hidden="true"
-                  class="inline-block size-2 rounded-full bg-leader"
+                  class="inline-block size-1.5 -translate-y-0.5 rounded-full bg-leader"
                 />
-                <span :class="index === 0 ? 'font-bold text-foreground' : 'font-medium text-foreground/70'">
-                  #{{ index + 1 }}
+                <span :class="index === 0 ? 'font-semibold text-foreground' : 'font-medium text-foreground/70'">
+                  {{ index + 1 }}
                 </span>
               </span>
-              <div class="break-words font-display text-base sm:text-lg font-bold leading-tight text-foreground">
+              <h3
+                class="min-w-0 break-words font-display text-lg leading-tight text-foreground"
+                :class="index === 0 ? 'font-semibold' : 'font-medium'"
+              >
                 {{ team.name }}
-              </div>
+              </h3>
             </div>
-            <div class="shrink-0 rounded-md bg-secondary px-2.5 py-1 font-display text-sm sm:text-base font-bold tabular-nums text-foreground">
-              Σ {{ quizStore.getTotalScore(team) }}
-            </div>
+            <span
+              class="shrink-0 font-display text-2xl tabular-nums text-foreground"
+              :class="index === 0 ? 'font-semibold' : 'font-medium'"
+            >
+              <span class="sr-only">Всего </span>{{ quizStore.getTotalScore(team) }}
+            </span>
           </div>
 
-          <!-- Horizontal scrollable rounds row for this team (scales up to 15+ rounds smoothly) -->
-          <div class="flex gap-2.5 overflow-x-auto overscroll-x-contain pb-1.5 pt-0.5 w-full max-w-full">
-            <div
+          <div data-enter-group class="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8">
+            <label
               v-for="(round, roundIndex) in quizStore.currentGame?.rounds"
               :key="round.id"
-              class="flex shrink-0 flex-col items-center gap-1.5"
+              class="flex min-w-0 flex-col items-center gap-1"
             >
-              <span class="eyebrow-tight whitespace-nowrap text-xs font-semibold text-muted-foreground">
+              <span class="eyebrow-tight text-muted-foreground">
                 Р{{ roundIndex + 1 }}
               </span>
               <input
                 type="text"
                 inputmode="decimal"
-                class="h-12 w-16 sm:w-18 rounded-lg border-2 border-rule bg-background px-1 text-center font-display text-xl font-bold tabular-nums text-foreground outline-none transition-colors hover:border-rule-strong focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+                :enterkeyhint="roundIndex < roundsCount - 1 ? 'next' : 'done'"
+                class="h-12 w-full min-w-0 scroll-mt-4 rounded-md border-2 border-rule bg-background px-1 text-center font-display text-xl font-semibold tabular-nums text-foreground outline-none transition-colors hover:border-rule-strong focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                 :value="scoreValue(team, round.id)"
                 :disabled="props.readOnly"
                 :aria-label="`Баллы команды ${team.name} в раунде ${round.title}`"
@@ -518,9 +512,9 @@ onBeforeUnmount(() => {
                 @keydown="handleScoreKeydown"
                 @wheel="preventWheelStep"
               >
-            </div>
+            </label>
           </div>
-        </div>
+        </section>
       </TransitionGroup>
 
       <!-- Mode 3: Only the score columns scroll; team names stay visible. -->
@@ -528,25 +522,25 @@ onBeforeUnmount(() => {
         <table class="w-full border-collapse text-foreground">
           <thead>
             <tr class="border-b border-rule-strong eyebrow-tight text-muted-foreground">
-              <th scope="col" class="sticky left-0 z-10 w-10 min-w-10 max-w-10 bg-background py-3.5 pl-3 pr-2 text-left font-semibold min-w-10">
+              <th scope="col" class="sticky left-0 z-10 w-10 min-w-10 max-w-10 bg-background py-3.5 pl-3 pr-2 text-left font-medium">
                 №
               </th>
-              <th scope="col" class="sticky left-10 z-10 w-28 min-w-28 max-w-28 sm:w-40 sm:min-w-40 sm:max-w-40 border-r border-rule bg-background py-3.5 pl-2 pr-3 text-left font-semibold">
+              <th scope="col" class="sticky left-10 z-10 w-28 min-w-28 max-w-28 border-r border-rule bg-background py-3.5 pl-2 pr-3 text-left font-medium sm:w-40 sm:min-w-40 sm:max-w-40">
                 Команда
               </th>
-              <th scope="col" class="border-r border-rule py-3.5 px-3 text-right font-semibold min-w-14">
+              <th scope="col" class="min-w-14 border-r border-rule px-3 py-3.5 text-right font-medium">
                 Σ
               </th>
               <th
                 v-for="(round, roundIndex) in quizStore.currentGame?.rounds"
                 :key="round.id"
                 scope="col"
-                class="min-w-22 py-3 px-2 text-center font-semibold"
+                class="min-w-20 px-2 py-3 text-center font-medium"
               >
-                <div class="font-display text-base font-bold tracking-normal text-foreground normal-case">
+                <div class="font-display text-base font-medium normal-case tracking-normal text-foreground">
                   Р{{ roundIndex + 1 }}
                 </div>
-                <div v-if="round.maxScore !== null && round.maxScore !== undefined" class="text-[11px] text-muted-foreground font-normal">
+                <div v-if="round.maxScore !== null && round.maxScore !== undefined" class="mt-0.5 whitespace-nowrap text-[10px] font-normal text-muted-foreground">
                   макс. {{ round.maxScore }}
                 </div>
               </th>
@@ -556,39 +550,36 @@ onBeforeUnmount(() => {
             <tr
               v-for="(team, index) in visibleTeams"
               :key="team.id"
-              class="border-b border-rule transition-colors focus-within:!bg-primary/[0.07]"
-              :class="{ 'bg-secondary/35': index % 2 === 1 }"
+              class="border-b border-rule"
             >
-              <td class="sticky left-0 z-10 w-10 min-w-10 max-w-10 py-3.5 pl-3 pr-2 align-middle" :class="index % 2 === 1 ? 'bg-secondary' : 'bg-background'">
-                <span class="flex items-center gap-1 font-display text-sm tabular-nums">
+              <td class="sticky left-0 z-10 w-10 min-w-10 max-w-10 bg-background py-3 pl-3 pr-2 align-middle">
+                <span class="flex items-center gap-1 font-display text-base tabular-nums">
                   <span v-if="index === 0" aria-hidden="true" class="inline-block size-1.5 rounded-full bg-leader" />
-                  <span :class="index === 0 ? 'font-bold text-foreground' : 'font-medium text-foreground/70'">
+                  <span :class="index === 0 ? 'font-semibold text-foreground' : 'font-medium text-foreground/70'">
                     {{ index + 1 }}
                   </span>
                 </span>
               </td>
-              <td
-                class="sticky left-10 z-10 w-28 min-w-28 max-w-28 sm:w-40 sm:min-w-40 sm:max-w-40 break-words whitespace-normal border-r border-rule py-3.5 pl-2 pr-3 align-middle"
-                :class="index % 2 === 1 ? 'bg-secondary' : 'bg-background'"
-              >
-                <span class="font-display text-sm sm:text-base leading-tight text-foreground" :class="index === 0 ? 'font-bold' : 'font-semibold'">
+              <td class="sticky left-10 z-10 w-28 min-w-28 max-w-28 whitespace-normal break-words hyphens-auto border-r border-rule bg-background py-3 pl-2 pr-3 align-middle sm:w-40 sm:min-w-40 sm:max-w-40">
+                <span class="font-display text-base leading-tight text-foreground" :class="index === 0 ? 'font-semibold' : 'font-medium'">
                   {{ team.name }}
                 </span>
               </td>
-              <td class="border-r border-rule py-3.5 px-3 text-right align-middle">
-                <span class="font-display text-base sm:text-lg tabular-nums text-foreground font-bold" :class="index === 0 ? 'text-primary' : ''">
+              <td class="border-r border-rule px-3 py-3 text-right align-middle">
+                <span class="font-display text-xl tabular-nums text-foreground" :class="index === 0 ? 'font-semibold' : 'font-medium'">
                   {{ quizStore.getTotalScore(team) }}
                 </span>
               </td>
               <td
                 v-for="(round, roundIndex) in quizStore.currentGame?.rounds"
                 :key="round.id"
-                class="py-2.5 px-1.5 text-center align-middle min-w-22"
+                class="min-w-20 px-1.5 py-2 text-center align-middle"
               >
                 <input
                   type="text"
                   inputmode="decimal"
-                  class="h-12 w-18 sm:w-20 rounded-lg border-2 border-rule bg-background px-1 text-center font-display text-xl font-bold tabular-nums text-foreground outline-none transition-colors hover:border-rule-strong focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  enterkeyhint="done"
+                  class="h-12 w-16 rounded-md border-2 border-rule bg-background px-1 text-center font-display text-xl font-semibold tabular-nums text-foreground outline-none transition-colors hover:border-rule-strong focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                   :value="scoreValue(team, round.id)"
                   :disabled="props.readOnly"
                   :aria-label="`Баллы команды ${team.name} в раунде ${round.title}`"

@@ -149,7 +149,7 @@ async function signOut(): Promise<void> {
         <button
           v-if="user"
           type="button"
-          class="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+          class="inline-flex min-h-11 items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
           @click="signOut"
         >
           <LogOut class="size-3.5" />

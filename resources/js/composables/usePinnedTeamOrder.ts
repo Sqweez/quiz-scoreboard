@@ -3,20 +3,27 @@ import type { Team } from '~/lib/quiz'
 
 export function usePinnedTeamOrder(sortedTeams: () => Team[]) {
   const pinnedTeamIds = ref<string[] | null>(null);
+  // Bumped on every freeze so a release from the previous cell does not
+  // unpin the order when focus moves straight to the next score input.
+  let pinGeneration = 0;
 
   const visibleTeams = computed(() =>
     orderTeamsByPinnedIds(sortedTeams(), pinnedTeamIds.value),
   );
 
   function freezeCurrentOrder(): void {
+    pinGeneration++;
     if (!pinnedTeamIds.value) {
       pinnedTeamIds.value = visibleTeams.value.map((team) => team.id);
     }
   }
 
   async function releaseCurrentOrder(): Promise<void> {
+    const generation = pinGeneration;
     await nextTick();
-    pinnedTeamIds.value = null;
+    if (generation === pinGeneration) {
+      pinnedTeamIds.value = null;
+    }
   }
 
   return {

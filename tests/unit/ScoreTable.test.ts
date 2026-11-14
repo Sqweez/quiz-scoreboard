@@ -126,7 +126,7 @@ describe('mobile and tablet adaptive layout', () => {
 
     // Switch to round 2 via next button
     const nextBtn = Array.from(container.querySelectorAll('button')).find(b =>
-      b.textContent?.includes('Р2 →')
+      b.textContent?.trim() === 'Раунд 2'
     )
     expect(nextBtn).toBeDefined()
     nextBtn?.click()
@@ -168,8 +168,8 @@ describe('ranking changes', () => {
       )
       const input = mode === 'desktop' ? inputs[0]! : inputs[1]!
       const group = input.closest('tbody') ?? (mode === 'По командам'
-        ? input.closest('.rounded-xl')!.parentElement!
-        : input.parentElement!.parentElement!.parentElement!)
+        ? input.closest('section')!.parentElement!
+        : input.closest('[data-enter-group]')!)
       input.focus()
       await nextTick()
       await enterScore(input, '8')

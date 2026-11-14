@@ -141,7 +141,7 @@ watch(
     <template v-if="quizStore.currentGame">
       <Link
         :href="`/games/${quizStore.currentGame.id}`"
-        class="inline-flex items-center gap-1.5 self-start text-sm text-muted-foreground transition-colors hover:text-foreground"
+        class="-my-3 inline-flex items-center gap-1.5 self-start py-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft class="size-3.5" />
         Назад к таблице

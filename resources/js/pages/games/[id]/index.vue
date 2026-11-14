@@ -213,7 +213,7 @@ function pluralize(count: number, one: string, few: string, many: string): strin
     <template v-if="quizStore.currentGame">
       <Link
         href="/"
-        class="inline-flex items-center gap-1.5 self-start text-sm text-muted-foreground transition-colors hover:text-foreground"
+        class="-my-3 inline-flex items-center gap-1.5 self-start py-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft class="size-3.5" />
         Все игры

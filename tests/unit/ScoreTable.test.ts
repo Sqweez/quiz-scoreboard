@@ -90,7 +90,7 @@ describe('mobile and tablet adaptive layout', () => {
     expect(modeButtons).toHaveLength(3)
 
     // Default is round mode
-    expect(container.textContent).toContain('Раунд 1: Round')
+    expect(container.textContent).toContain('Раунд 1')
 
     // Switch to team mode
     const teamBtn = modeButtons.find(b => b.textContent?.trim() === 'По командам')!
@@ -122,7 +122,7 @@ describe('mobile and tablet adaptive layout', () => {
     await nextTick()
 
     // Mode is 'round'
-    expect(container.textContent).toContain('Раунд 1: Start')
+    expect(container.textContent).toContain('Раунд 1')
 
     // Switch to round 2 via next button
     const nextBtn = Array.from(container.querySelectorAll('button')).find(b =>
@@ -131,7 +131,7 @@ describe('mobile and tablet adaptive layout', () => {
     expect(nextBtn).toBeDefined()
     nextBtn?.click()
     await nextTick()
-    expect(container.textContent).toContain('Раунд 2: Music')
+    expect(container.textContent).toContain('Раунд 2')
 
     // Input in round 2 should show team's score
     const roundInputs = Array.from(container.querySelectorAll('input')).filter(

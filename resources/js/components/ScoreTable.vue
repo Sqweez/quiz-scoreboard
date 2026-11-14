@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { useQuizStore } from '../stores/quiz'
 import type { Round, Team } from '~/lib/quiz'
@@ -297,33 +298,33 @@ onBeforeUnmount(() => {
     <!-- Mobile / Tablet View (< 1024px) -->
     <div class="block lg:hidden w-full min-w-0 max-w-full">
       <!-- Mode Switcher -->
-      <div class="mb-4 flex items-center rounded-lg border border-rule bg-secondary/50 p-1">
+      <div class="mb-4 flex items-center rounded-xl border border-rule bg-secondary/60 p-1">
         <button
           type="button"
-          class="flex-1 rounded-md px-2 py-1.5 text-center text-xs font-medium transition-colors sm:text-sm"
+          class="flex-1 flex items-center justify-center h-10 px-1 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap text-center"
           :class="mobileMode === 'round'
-            ? 'bg-background font-semibold text-foreground shadow-sm'
-            : 'text-muted-foreground hover:text-foreground'"
+            ? 'bg-background font-bold text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground active:scale-95'"
           @click="mobileMode = 'round'"
         >
           По раундам
         </button>
         <button
           type="button"
-          class="flex-1 rounded-md px-2 py-1.5 text-center text-xs font-medium transition-colors sm:text-sm"
+          class="flex-1 flex items-center justify-center h-10 px-1 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap text-center"
           :class="mobileMode === 'team'
-            ? 'bg-background font-semibold text-foreground shadow-sm'
-            : 'text-muted-foreground hover:text-foreground'"
+            ? 'bg-background font-bold text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground active:scale-95'"
           @click="mobileMode = 'team'"
         >
           По командам
         </button>
         <button
           type="button"
-          class="flex-1 rounded-md px-2 py-1.5 text-center text-xs font-medium transition-colors sm:text-sm"
+          class="flex-1 flex items-center justify-center h-10 px-1 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap text-center"
           :class="mobileMode === 'table'
-            ? 'bg-background font-semibold text-foreground shadow-sm'
-            : 'text-muted-foreground hover:text-foreground'"
+            ? 'bg-background font-bold text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground active:scale-95'"
           @click="mobileMode = 'table'"
         >
           Таблица
@@ -337,40 +338,39 @@ onBeforeUnmount(() => {
       <!-- Mode 1: By Round -->
       <div v-else-if="mobileMode === 'round'">
         <!-- Scrollable round tabs -->
-        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar overscroll-x-contain pb-1.5 w-full max-w-full">
+        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar overscroll-x-contain pb-2 w-full max-w-full">
           <button
             v-for="(round, roundIndex) in quizStore.currentGame?.rounds"
             :key="round.id"
             type="button"
-            class="flex shrink-0 items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs transition-colors sm:text-sm"
+            class="flex h-11 shrink-0 items-center gap-1.5 rounded-lg border px-4 text-sm font-medium transition-all active:scale-95"
             :class="activeRoundIndex === roundIndex
-              ? 'border-foreground bg-foreground font-semibold text-background'
+              ? 'border-foreground bg-foreground font-bold text-background shadow-sm'
               : 'border-rule bg-background text-muted-foreground hover:border-rule-strong hover:text-foreground'"
             @click="activeRoundIndex = roundIndex"
           >
             <span>Р{{ roundIndex + 1 }}</span>
-            <span v-if="round.maxScore !== null && round.maxScore !== undefined" class="text-[10px] opacity-75">
+            <span v-if="round.maxScore !== null && round.maxScore !== undefined" class="text-xs opacity-75">
               ({{ round.maxScore }})
             </span>
           </button>
         </div>
 
         <!-- Active round banner with quick prev/next navigation -->
-        <div v-if="activeRound" class="mt-3 flex items-center justify-between gap-3 rounded-lg border border-rule bg-secondary/40 px-3 py-2.5">
+        <div v-if="activeRound" class="mt-3 flex items-center justify-between gap-3 rounded-xl border border-rule bg-secondary/40 p-3">
           <div class="min-w-0 flex-1">
-            <div class="truncate font-display text-base font-semibold text-foreground">
-              Раунд {{ activeRoundIndex + 1 }}: {{ activeRound.title }}
+            <div class="truncate font-display text-base sm:text-lg font-bold text-foreground">
+              Раунд {{ activeRoundIndex + 1 }}
             </div>
-            <div v-if="activeRound.maxScore !== null && activeRound.maxScore !== undefined" class="text-xs text-muted-foreground">
+            <div v-if="activeRound.maxScore !== null && activeRound.maxScore !== undefined" class="text-xs sm:text-sm text-muted-foreground">
               Максимум баллов: {{ activeRound.maxScore }}
             </div>
           </div>
-          <div class="flex shrink-0 items-center gap-1">
+          <div class="flex shrink-0 items-center gap-1.5">
             <Button
               type="button"
               variant="outline"
-              size="sm"
-              class="h-8 px-2 text-xs"
+              class="h-10 px-3 text-sm font-semibold active:scale-95"
               :disabled="activeRoundIndex <= 0"
               @click="activeRoundIndex--"
             >
@@ -379,8 +379,7 @@ onBeforeUnmount(() => {
             <Button
               type="button"
               variant="outline"
-              size="sm"
-              class="h-8 px-2 text-xs"
+              class="h-10 px-3 text-sm font-semibold active:scale-95"
               :disabled="!quizStore.currentGame || activeRoundIndex >= quizStore.currentGame.rounds.length - 1"
               @click="activeRoundIndex++"
             >
@@ -394,29 +393,29 @@ onBeforeUnmount(() => {
           <div
             v-for="(team, index) in visibleTeams"
             :key="team.id"
-            class="flex items-center justify-between gap-2 sm:gap-3 py-3 transition-colors hover:bg-secondary/40 focus-within:bg-primary/[0.07]"
+            class="flex items-center justify-between gap-3 py-3.5 transition-colors hover:bg-secondary/40 focus-within:bg-primary/[0.07]"
             :class="{ 'bg-secondary/20': index % 2 === 1 }"
           >
-            <div class="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
-              <span class="flex w-6 shrink-0 items-center gap-1 font-display text-sm tabular-nums">
+            <div class="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
+              <span class="flex w-6 shrink-0 items-center gap-1 font-display text-base tabular-nums">
                 <span
                   v-if="index === 0"
                   aria-hidden="true"
-                  class="inline-block size-1.5 rounded-full bg-leader"
+                  class="inline-block size-2 rounded-full bg-leader"
                 />
-                <span :class="index === 0 ? 'font-semibold text-foreground' : 'font-medium text-foreground/70'">
+                <span :class="index === 0 ? 'font-bold text-foreground' : 'font-medium text-foreground/70'">
                   {{ index + 1 }}
                 </span>
               </span>
               <div class="min-w-0 flex-1">
                 <div
-                  class="truncate font-display text-base font-medium leading-tight text-foreground"
-                  :class="{ 'font-semibold': index === 0 }"
+                  class="truncate font-display text-base sm:text-lg font-semibold leading-tight text-foreground"
+                  :class="{ 'font-bold': index === 0 }"
                 >
                   {{ team.name }}
                 </div>
-                <div class="text-xs text-muted-foreground tabular-nums">
-                  Всего: <span class="font-medium text-foreground">{{ quizStore.getTotalScore(team) }}</span>
+                <div class="text-xs sm:text-sm text-muted-foreground tabular-nums">
+                  Всего: <span class="font-semibold text-foreground">{{ quizStore.getTotalScore(team) }}</span>
                 </div>
               </div>
             </div>
@@ -425,7 +424,7 @@ onBeforeUnmount(() => {
               <input
                 type="text"
                 inputmode="decimal"
-                class="h-11 w-16 sm:w-20 rounded-md border border-rule bg-background px-2 text-center font-display text-xl font-semibold tabular-nums text-foreground outline-none transition-colors hover:border-rule-strong focus:border-primary focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
+                class="h-12 w-22 sm:w-24 rounded-lg border-2 border-rule bg-background px-2 text-center font-display text-2xl font-bold tabular-nums text-foreground outline-none transition-colors hover:border-rule-strong focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                 :value="scoreValue(team, activeRound.id)"
                 :disabled="props.readOnly"
                 :aria-label="`Баллы команды ${team.name} в раунде ${activeRound.title}`"
@@ -443,72 +442,72 @@ onBeforeUnmount(() => {
         <!-- Bottom prev/next round buttons -->
         <div
           v-if="activeRound && quizStore.currentGame && quizStore.currentGame.rounds.length > 1"
-          class="mt-6 flex items-center justify-between gap-3"
+          class="mt-6 flex items-center justify-between gap-2 sm:gap-3"
         >
           <Button
             type="button"
             variant="outline"
-            class="h-10 flex-1 text-sm"
+            class="h-11 flex-1 px-2 text-xs sm:text-sm font-semibold active:scale-98"
             :disabled="activeRoundIndex <= 0"
             @click="activeRoundIndex--"
           >
-            ← Предыдущий раунд
+            ← Предыдущий
           </Button>
           <Button
             type="button"
             variant="outline"
-            class="h-10 flex-1 text-sm"
+            class="h-11 flex-1 px-2 text-xs sm:text-sm font-semibold active:scale-98"
             :disabled="activeRoundIndex >= quizStore.currentGame.rounds.length - 1"
             @click="activeRoundIndex++"
           >
-            Следующий раунд →
+            Следующий →
           </Button>
         </div>
       </div>
 
       <!-- Mode 2: By Team -->
-      <div v-else-if="mobileMode === 'team'" class="flex flex-col gap-3 w-full min-w-0">
+      <div v-else-if="mobileMode === 'team'" class="flex flex-col gap-3.5 w-full min-w-0">
         <div
           v-for="(team, index) in visibleTeams"
           :key="team.id"
-          class="rounded-lg border border-rule bg-background p-3 sm:p-3.5 transition-colors focus-within:border-primary focus-within:bg-primary/[0.03] w-full min-w-0"
+          class="rounded-xl border border-rule bg-background p-4 transition-colors focus-within:border-primary focus-within:bg-primary/[0.03] w-full min-w-0"
           :class="{ 'bg-secondary/25': index % 2 === 1 }"
         >
-          <div class="mb-2.5 flex items-center justify-between gap-2 border-b border-rule pb-2">
+          <div class="mb-3 flex items-center justify-between gap-2 border-b border-rule pb-2.5">
             <div class="flex min-w-0 flex-1 items-center gap-2">
               <span class="flex shrink-0 items-center gap-1 font-display text-sm tabular-nums">
                 <span
                   v-if="index === 0"
                   aria-hidden="true"
-                  class="inline-block size-1.5 rounded-full bg-leader"
+                  class="inline-block size-2 rounded-full bg-leader"
                 />
-                <span :class="index === 0 ? 'font-semibold text-foreground' : 'font-medium text-foreground/70'">
+                <span :class="index === 0 ? 'font-bold text-foreground' : 'font-medium text-foreground/70'">
                   #{{ index + 1 }}
                 </span>
               </span>
-              <div class="truncate font-display text-base font-semibold leading-tight text-foreground">
+              <div class="truncate font-display text-base sm:text-lg font-bold leading-tight text-foreground">
                 {{ team.name }}
               </div>
             </div>
-            <div class="shrink-0 rounded bg-secondary px-2 py-0.5 font-display text-sm font-semibold tabular-nums text-foreground">
+            <div class="shrink-0 rounded-md bg-secondary px-2.5 py-1 font-display text-sm sm:text-base font-bold tabular-nums text-foreground">
               Σ {{ quizStore.getTotalScore(team) }}
             </div>
           </div>
 
           <!-- Horizontal scrollable rounds row for this team (scales up to 15+ rounds smoothly) -->
-          <div class="flex gap-2 overflow-x-auto no-scrollbar overscroll-x-contain pb-1.5 pt-0.5 w-full max-w-full">
+          <div class="flex gap-2.5 overflow-x-auto no-scrollbar overscroll-x-contain pb-1.5 pt-0.5 w-full max-w-full">
             <div
               v-for="(round, roundIndex) in quizStore.currentGame?.rounds"
               :key="round.id"
-              class="flex shrink-0 flex-col items-center gap-1"
+              class="flex shrink-0 flex-col items-center gap-1.5"
             >
-              <span class="eyebrow-tight whitespace-nowrap text-[11px] text-muted-foreground">
+              <span class="eyebrow-tight whitespace-nowrap text-xs font-semibold text-muted-foreground">
                 Р{{ roundIndex + 1 }}
               </span>
               <input
                 type="text"
                 inputmode="decimal"
-                class="h-10 w-13 sm:w-14 rounded border border-rule bg-background px-1 text-center font-display text-lg font-semibold tabular-nums text-foreground outline-none transition-colors hover:border-rule-strong focus:border-primary focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
+                class="h-12 w-16 sm:w-18 rounded-lg border-2 border-rule bg-background px-1 text-center font-display text-xl font-bold tabular-nums text-foreground outline-none transition-colors hover:border-rule-strong focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                 :value="scoreValue(team, round.id)"
                 :disabled="props.readOnly"
                 :aria-label="`Баллы команды ${team.name} в раунде ${round.title}`"
@@ -524,31 +523,31 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- Mode 3: Table with sticky team column -->
-      <div v-else-if="mobileMode === 'table'" class="w-full max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-rule">
+      <!-- Mode 3: Table with sticky team column (Enhanced for large touch targets) -->
+      <div v-else-if="mobileMode === 'table'" class="w-full max-w-full overflow-x-auto overscroll-x-contain rounded-xl border border-rule">
         <table class="w-full border-collapse text-foreground">
           <thead>
             <tr class="border-b border-rule-strong eyebrow-tight text-muted-foreground">
-              <th scope="col" class="sticky left-0 z-10 bg-background py-3 pl-3 pr-2 text-left font-medium">
+              <th scope="col" class="sticky left-0 z-10 bg-background py-3.5 pl-3 pr-2 text-left font-semibold min-w-10">
                 №
               </th>
-              <th scope="col" class="sticky left-8 z-10 min-w-32 max-w-44 border-r border-rule bg-background py-3 pl-2 pr-3 text-left font-medium">
+              <th scope="col" class="sticky left-10 z-10 min-w-36 max-w-52 border-r border-rule bg-background py-3.5 pl-2 pr-3 text-left font-semibold">
                 Команда
               </th>
-              <th scope="col" class="border-r border-rule py-3 px-2 text-right font-medium">
+              <th scope="col" class="border-r border-rule py-3.5 px-3 text-right font-semibold min-w-14">
                 Σ
               </th>
               <th
                 v-for="(round, roundIndex) in quizStore.currentGame?.rounds"
                 :key="round.id"
                 scope="col"
-                class="min-w-16 py-3 px-2 text-right font-medium"
+                class="min-w-22 py-3 px-2 text-center font-semibold"
               >
-                <div class="font-display text-sm font-medium tracking-normal text-foreground normal-case">
-                  {{ roundIndex + 1 }}
+                <div class="font-display text-base font-bold tracking-normal text-foreground normal-case">
+                  Р{{ roundIndex + 1 }}
                 </div>
-                <div v-if="round.maxScore !== null && round.maxScore !== undefined" class="text-[10px] text-muted-foreground">
-                  {{ round.maxScore }}
+                <div v-if="round.maxScore !== null && round.maxScore !== undefined" class="text-[11px] text-muted-foreground font-normal">
+                  макс. {{ round.maxScore }}
                 </div>
               </th>
             </tr>
@@ -560,36 +559,36 @@ onBeforeUnmount(() => {
               class="border-b border-rule transition-colors focus-within:!bg-primary/[0.07]"
               :class="{ 'bg-secondary/35': index % 2 === 1 }"
             >
-              <td class="sticky left-0 z-10 py-3 pl-3 pr-2 align-middle" :class="index % 2 === 1 ? 'bg-secondary' : 'bg-background'">
+              <td class="sticky left-0 z-10 py-3.5 pl-3 pr-2 align-middle" :class="index % 2 === 1 ? 'bg-secondary' : 'bg-background'">
                 <span class="flex items-center gap-1 font-display text-sm tabular-nums">
                   <span v-if="index === 0" aria-hidden="true" class="inline-block size-1.5 rounded-full bg-leader" />
-                  <span :class="index === 0 ? 'font-semibold text-foreground' : 'font-medium text-foreground/70'">
+                  <span :class="index === 0 ? 'font-bold text-foreground' : 'font-medium text-foreground/70'">
                     {{ index + 1 }}
                   </span>
                 </span>
               </td>
               <td
-                class="sticky left-8 z-10 min-w-32 max-w-44 truncate border-r border-rule py-3 pl-2 pr-3 align-middle"
+                class="sticky left-10 z-10 min-w-36 max-w-52 truncate border-r border-rule py-3.5 pl-2 pr-3 align-middle"
                 :class="index % 2 === 1 ? 'bg-secondary' : 'bg-background'"
               >
-                <span class="font-display text-sm leading-tight text-foreground" :class="index === 0 ? 'font-semibold' : 'font-medium'">
+                <span class="font-display text-sm sm:text-base leading-tight text-foreground" :class="index === 0 ? 'font-bold' : 'font-semibold'">
                   {{ team.name }}
                 </span>
               </td>
-              <td class="border-r border-rule py-3 px-2 text-right align-middle">
-                <span class="font-display text-base tabular-nums text-foreground" :class="index === 0 ? 'font-semibold' : 'font-medium'">
+              <td class="border-r border-rule py-3.5 px-3 text-right align-middle">
+                <span class="font-display text-base sm:text-lg tabular-nums text-foreground font-bold" :class="index === 0 ? 'text-primary' : ''">
                   {{ quizStore.getTotalScore(team) }}
                 </span>
               </td>
               <td
                 v-for="(round, roundIndex) in quizStore.currentGame?.rounds"
                 :key="round.id"
-                class="py-3 px-2 text-right align-middle"
+                class="py-2.5 px-1.5 text-center align-middle min-w-22"
               >
                 <input
                   type="text"
                   inputmode="decimal"
-                  class="h-9 w-14 rounded-none border-0 border-b border-rule bg-transparent px-1 text-right font-display text-base tabular-nums text-foreground/85 outline-none transition-colors hover:border-rule-strong focus:border-primary focus:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                  class="h-12 w-18 sm:w-20 rounded-lg border-2 border-rule bg-background px-1 text-center font-display text-xl font-bold tabular-nums text-foreground outline-none transition-colors hover:border-rule-strong focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                   :value="scoreValue(team, round.id)"
                   :disabled="props.readOnly"
                   :aria-label="`Баллы команды ${team.name} в раунде ${round.title}`"

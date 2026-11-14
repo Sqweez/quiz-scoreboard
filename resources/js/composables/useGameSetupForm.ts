@@ -126,11 +126,10 @@ export function useGameSetupForm(options: UseGameSetupFormOptions) {
 
   // Fills the form from an external game. Teams are replaced, so a repeated import never duplicates them;
   // rounds stay as the user set them.
-  function applyImport(input: { externalId: string, title: string, packageNumber: string | null, teamNames: string[] }): void {
+  // The imported package is not copied: an empty rating package makes the server use it.
+  function applyImport(input: { externalId: string, title: string, teamNames: string[] }): void {
     externalId.value = input.externalId
     title.value = input.title
-    // The rating package defaults to the game's question package and stays editable.
-    ratingPackage.value = input.packageNumber ?? ''
 
     if (input.teamNames.length > 0) {
       teams.value = input.teamNames.map((name) => createDraftTeam(name))

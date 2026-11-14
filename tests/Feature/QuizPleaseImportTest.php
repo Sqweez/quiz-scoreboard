@@ -183,7 +183,7 @@ class QuizPleaseImportTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('externalId');
     }
 
-    public function test_external_id_can_be_set_changed_and_cleared_when_editing(): void
+    public function test_external_id_can_be_linked_once_when_editing_and_then_stays_fixed(): void
     {
         Http::fake(['https://api.quizplease.com/api/games/*' => Http::response($this->game())]);
         $this->actingAs($this->user('token'));
@@ -192,19 +192,28 @@ class QuizPleaseImportTest extends TestCase
         $url = "/api/games/{$game['id']}";
         $newId = '0190a1b2-0cc8-709f-8197-62881b0dbcdd';
 
-        $this->patchJson($url, ['externalId' => strtoupper($newId)])->assertOk()
-            ->assertJsonPath('externalId', $newId)->assertJsonPath('title', 'Manual')->assertJsonPath('extra.packageNumber', '#1зумерыким');
-        Http::assertSent(fn (Request $request) => str_contains($request->url(), "/api/games/{$newId}"));
-        $this->patchJson($url, ['externalId' => $newId])->assertOk();
         $this->patchJson($url, ['externalId' => 'nope'])->assertUnprocessable()->assertJsonValidationErrors('externalId');
         $this->patchJson($url, ['externalId' => self::GAME_ID])->assertUnprocessable()->assertJsonValidationErrors('externalId');
-        $this->patchJson($url, ['title' => 'Renamed'])->assertOk()->assertJsonPath('externalId', $newId);
-        $this->patchJson($url, ['externalId' => null])->assertOk()->assertJsonPath('externalId', null)->assertJsonPath('extra', null);
+        $this->patchJson($url, ['externalId' => strtoupper($newId)])->assertOk()
+            ->assertJsonPath('externalId', $newId)->assertJsonPath('title', 'Manual')->assertJsonPath('extra.packageNumber', '#1зумерыким')
+            ->assertJsonPath('ratingPackage', '#1зумерыким');
+        Http::assertSent(fn (Request $request) => str_contains($request->url(), "/api/games/{$newId}"));
 
-        // Finished games keep title and external id editable, everything else stays closed.
+        // Once linked, the same ID is accepted but it can be neither replaced nor cleared.
+        $this->patchJson($url, ['externalId' => strtoupper($newId)])->assertOk();
+        $this->patchJson($url, ['externalId' => '0190a1b2-0cc8-709f-8197-62881b0dbcde'])->assertUnprocessable()->assertJsonValidationErrors('externalId');
+        $this->patchJson($url, ['externalId' => null])->assertUnprocessable()->assertJsonValidationErrors('externalId');
+        $this->patchJson($url, ['title' => 'Renamed'])->assertOk()->assertJsonPath('externalId', $newId);
+
+        // A manual package overrides the imported one and clearing it falls back to the imported package.
+        $this->patchJson($url, ['ratingPackage' => 'Классика'])->assertOk()->assertJsonPath('ratingPackage', 'Классика');
+        $this->patchJson($url, ['ratingPackage' => null])->assertOk()->assertJsonPath('ratingPackage', '#1зумерыким');
+
+        // Finished games keep the title editable, the link stays fixed and everything else stays closed.
         $this->postJson("/api/games/{$other['id']}/finish")->assertOk();
-        $this->patchJson("/api/games/{$other['id']}", ['externalId' => null, 'title' => 'Played'])->assertOk()
-            ->assertJsonPath('externalId', null)->assertJsonPath('title', 'Played')->assertJsonPath('status', 'finished');
+        $this->patchJson("/api/games/{$other['id']}", ['externalId' => null])->assertUnprocessable()->assertJsonValidationErrors('externalId');
+        $this->patchJson("/api/games/{$other['id']}", ['title' => 'Played'])->assertOk()
+            ->assertJsonPath('externalId', self::GAME_ID)->assertJsonPath('title', 'Played')->assertJsonPath('status', 'finished');
         $this->postJson("/api/games/{$other['id']}/teams", ['name' => 'Late'])->assertConflict();
     }
 

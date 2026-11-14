@@ -4,19 +4,20 @@ import { computed, reactive, ref, watch } from 'vue'
 import { ArrowLeft } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Spinner } from '~/components/ui/spinner'
-import type { Game } from '~/lib/quiz'
+import type { Game, GameExtra } from '~/lib/quiz'
 import TeamsEditor from '~/components/TeamsEditor.vue'
 import RoundsEditor from '~/components/RoundsEditor.vue'
 import QuizPleaseLoginDialog from '~/components/QuizPleaseLoginDialog.vue'
 import RatingSettings from '~/components/RatingSettings.vue'
 import { useQuizStore } from '~/stores/quiz'
 import { useQuizPleaseLogin } from '~/composables/useQuizPleaseLogin'
+import { type ExternalGame, useQuizPleaseImport } from '~/composables/useQuizPleaseImport'
 
 const quizStore = useQuizStore()
 const props = defineProps<{ gameId: string }>()
 
 const isFinished = computed(() => quizStore.currentGame?.status === 'finished')
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const isLinked = computed(() => Boolean(quizStore.currentGame?.externalId))
 
 type GameDetails = Partial<Pick<Game, 'title' | 'externalId' | 'ratingCategoryId' | 'ratingIncludeScores' | 'ratingPackage'>>
 
@@ -24,6 +25,52 @@ const draft = reactive({ title: '', externalId: '', ratingCategoryId: null as nu
 const detailsError = ref('')
 const isSaving = ref(false)
 const { isLoginOpen, requireLogin, login, cancelLogin } = useQuizPleaseLogin()
+
+// An unlinked game is linked by fetching it first; the preview is checked and then saved with the rest of the form.
+const {
+  gameId: lookupId,
+  game: lookupGame,
+  error: lookupError,
+  isFetching: isLookingUp,
+  isLoginOpen: isLookupLoginOpen,
+  fetchGame: lookUpGame,
+  login: lookupLogin,
+  cancelLogin: cancelLookupLogin
+} = useQuizPleaseImport({ onImported: applyLookup })
+
+function applyLookup(result: ExternalGame): void {
+  // A game already linked elsewhere is only linked from the preview, never prepared for a duplicate.
+  if (result.existingGameId) {
+    return
+  }
+
+  draft.externalId = result.externalId
+  draft.title = result.title
+}
+
+watch(lookupId, (value) => {
+  if (!value.trim()) {
+    draft.externalId = ''
+  }
+})
+
+const hasUnfetchedId = computed(() => !isLinked.value && lookupId.value.trim().toLowerCase() !== draft.externalId.toLowerCase())
+
+// The package of the linked (or just fetched) game; an empty manual package falls back to it on the server.
+const autoPackage = computed(() => {
+  const game = quizStore.currentGame
+
+  if (game?.externalId) {
+    return game.extra?.packageNumber ?? null
+  }
+
+  return draft.externalId ? lookupGame.value?.extra.packageNumber ?? null : null
+})
+
+// A package equal to the imported one is shown as automatic, not as a manual override.
+function savedManualPackage(game: Game): string | null {
+  return game.ratingPackage === (game.extra?.packageNumber ?? null) ? null : game.ratingPackage
+}
 
 function resetDraft(): void {
   const game = quizStore.currentGame
@@ -36,8 +83,11 @@ function resetDraft(): void {
   draft.externalId = game.externalId ?? ''
   draft.ratingCategoryId = game.ratingCategoryId
   draft.ratingIncludeScores = game.ratingIncludeScores
-  draft.ratingPackage = game.ratingPackage ?? ''
+  draft.ratingPackage = savedManualPackage(game) ?? ''
   detailsError.value = ''
+  lookupId.value = ''
+  lookupGame.value = null
+  lookupError.value = ''
 }
 
 watch(() => quizStore.currentGame?.id, resetDraft, { immediate: true })
@@ -51,13 +101,11 @@ const changes = computed<GameDetails>(() => {
     return result
   }
 
-  const externalId = draft.externalId.trim().toLowerCase()
-
   if (draft.title.trim() !== game.title) {
     result.title = draft.title.trim()
   }
-  if (externalId !== (game.externalId ?? '')) {
-    result.externalId = externalId || null
+  if (!game.externalId && draft.externalId) {
+    result.externalId = draft.externalId
   }
   if (draft.ratingCategoryId !== game.ratingCategoryId) {
     result.ratingCategoryId = draft.ratingCategoryId
@@ -65,14 +113,16 @@ const changes = computed<GameDetails>(() => {
   if (draft.ratingIncludeScores !== game.ratingIncludeScores) {
     result.ratingIncludeScores = draft.ratingIncludeScores
   }
-  if (draft.ratingPackage.trim() !== (game.ratingPackage ?? '')) {
-    result.ratingPackage = draft.ratingPackage.trim() || null
+  const draftPackage = draft.ratingPackage.trim() || null
+
+  if (draftPackage !== savedManualPackage(game)) {
+    result.ratingPackage = draftPackage
   }
 
   return result
 })
 
-const isDirty = computed(() => Object.keys(changes.value).length > 0)
+const isDirty = computed(() => Object.keys(changes.value).length > 0 || hasUnfetchedId.value)
 
 async function saveDetails(): Promise<void> {
   if (isSaving.value || !isDirty.value) {
@@ -85,8 +135,10 @@ async function saveDetails(): Promise<void> {
     detailsError.value = 'Название игры не может быть пустым.'
     return
   }
-  if (details.externalId && !UUID_PATTERN.test(details.externalId)) {
-    detailsError.value = 'ID игры в Квиз, плиз! должен быть UUID.'
+  if (hasUnfetchedId.value) {
+    detailsError.value = lookupGame.value?.existingGameId
+      ? 'Эта игра «Квиз, плиз!» уже привязана к другой игре.'
+      : 'Нажмите «Подтянуть», чтобы проверить игру перед сохранением.'
     return
   }
 
@@ -105,9 +157,9 @@ async function saveDetails(): Promise<void> {
   }
 }
 
-const externalSummary = computed(() => {
-  const extra = quizStore.currentGame?.extra
+const externalSummary = computed(() => summarize(quizStore.currentGame?.extra ?? null))
 
+function summarize(extra: GameExtra | null): string {
   if (!extra) {
     return ''
   }
@@ -118,7 +170,7 @@ const externalSummary = computed(() => {
     extra.packageNumber && `пакет ${extra.packageNumber}`,
     extra.date && formatWallClock(extra.date)
   ].filter(Boolean).join(' · ')
-})
+}
 
 // "YYYY-MM-DD HH:mm" without a time zone is shown as is, only reordered.
 function formatWallClock(value: string): string {
@@ -182,25 +234,67 @@ watch(
           </section>
 
           <section class="space-y-3">
-            <label for="game-external-id" class="eyebrow block text-muted-foreground">
-              ID игры в Квиз, плиз!
-            </label>
-            <input
-              id="game-external-id"
-              v-model="draft.externalId"
-              type="text"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="Не указан"
-              class="h-12 w-full border-0 border-b border-rule-strong bg-transparent font-mono text-base outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground"
-            >
-            <p v-if="externalSummary" class="text-sm text-muted-foreground">{{ externalSummary }}</p>
-            <p class="text-xs text-muted-foreground">
-              Оставьте пустым, чтобы отвязать игру. При сохранении данные игры подтянутся из Квиз, плиз!
-            </p>
+            <template v-if="isLinked">
+              <p class="eyebrow text-muted-foreground">
+                ID игры в Квиз, плиз!
+              </p>
+              <p class="flex min-h-12 items-center break-all border-b border-rule font-mono text-base">
+                {{ quizStore.currentGame.externalId }}
+              </p>
+              <p v-if="externalSummary" class="text-sm text-muted-foreground">{{ externalSummary }}</p>
+              <p class="text-xs text-muted-foreground">
+                Игра привязана к Квиз, плиз! — ID изменить нельзя.
+              </p>
+            </template>
+            <template v-else>
+              <label for="game-external-id" class="eyebrow block text-muted-foreground">
+                ID игры в Квиз, плиз!
+              </label>
+              <div class="flex flex-col gap-3 sm:flex-row">
+                <input
+                  id="game-external-id"
+                  v-model="lookupId"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="01a19b42-0cc8-709f-8197-62881b0dbcdc"
+                  class="h-12 min-w-0 flex-1 border-0 border-b border-rule-strong bg-transparent font-mono text-base outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground"
+                  @keydown.enter.prevent="lookUpGame"
+                >
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  class="h-12"
+                  :disabled="isLookingUp || isLookupLoginOpen || !lookupId.trim()"
+                  @click="lookUpGame"
+                >
+                  <Spinner v-if="isLookingUp" />
+                  Подтянуть
+                </Button>
+              </div>
+              <p v-if="lookupError" class="text-sm text-primary" role="alert">{{ lookupError }}</p>
+              <div v-if="lookupGame" class="space-y-1 border-l-2 border-rule-strong pl-4" aria-live="polite">
+                <p v-if="lookupGame.existingGameId" class="text-sm">
+                  Эта игра уже привязана к другой игре.
+                  <Link :href="`/games/${lookupGame.existingGameId}`" class="text-primary underline-offset-4 hover:underline">
+                    Открыть
+                  </Link>
+                </p>
+                <template v-else>
+                  <p class="font-display text-lg leading-tight">{{ summarize(lookupGame.extra) }}</p>
+                  <p class="text-sm text-muted-foreground">
+                    Название и пакет подставлены. Проверьте и нажмите «Сохранить» — после этого ID изменить нельзя.
+                  </p>
+                </template>
+              </div>
+              <p v-else class="text-xs text-muted-foreground">
+                Введите ID и нажмите «Подтянуть»: название и пакет подставятся из Квиз, плиз!
+              </p>
+            </template>
           </section>
 
-          <RatingSettings v-model:category-id="draft.ratingCategoryId" v-model:include-scores="draft.ratingIncludeScores" v-model:package="draft.ratingPackage" />
+          <RatingSettings :auto-package="autoPackage" v-model:category-id="draft.ratingCategoryId" v-model:include-scores="draft.ratingIncludeScores" v-model:package="draft.ratingPackage" />
 
           <div class="space-y-3">
             <p v-if="detailsError" class="text-sm text-primary">{{ detailsError }}</p>
@@ -217,6 +311,7 @@ watch(
         </form>
 
         <QuizPleaseLoginDialog :open="isLoginOpen" :submit="login" @cancel="cancelLogin" />
+        <QuizPleaseLoginDialog :open="isLookupLoginOpen" :submit="lookupLogin" @cancel="cancelLookupLogin" />
 
         <TeamsEditor :read-only="isFinished" />
         <RoundsEditor v-if="!isFinished" />

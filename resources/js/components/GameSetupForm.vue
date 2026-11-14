@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3'
-import { nextTick, ref } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import { Minus, Plus, X } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Spinner } from '~/components/ui/spinner'
@@ -43,6 +43,13 @@ const {
 })
 
 const source = ref<'manual' | 'external'>('manual')
+const importedPackage = ref<string | null>(null)
+
+// The two sources each own the external ID; carrying it across would link the game to an ID the user no longer sees.
+watch(source, () => {
+  externalId.value = ''
+  importedPackage.value = null
+})
 
 function handleImported(game: ExternalGame): void {
   // An already imported game is linked from the preview instead of being prepared for a duplicate.
@@ -50,7 +57,8 @@ function handleImported(game: ExternalGame): void {
     return
   }
 
-  applyImport({ externalId: game.externalId, title: game.title, packageNumber: game.extra.packageNumber, teamNames: game.teams.map((team) => team.name) })
+  importedPackage.value = game.extra.packageNumber
+  applyImport({ externalId: game.externalId, title: game.title, teamNames: game.teams.map((team) => team.name) })
 }
 
 async function focusTeam(id: string): Promise<void> {
@@ -151,7 +159,8 @@ function handleTeamPaste(event: ClipboardEvent, id: string): void {
       </p>
     </section>
 
-    <section class="space-y-3">
+    <!-- In external mode the ID comes from the import block above, so the manual field would duplicate it. -->
+    <section v-if="source === 'manual'" class="space-y-3">
       <label for="game-external-id" class="eyebrow-tight block text-muted-foreground">
         ID игры в Квиз, плиз! — необязательно
       </label>
@@ -262,7 +271,7 @@ function handleTeamPaste(event: ClipboardEvent, id: string): void {
       </div>
     </section>
 
-    <RatingSettings v-model:category-id="ratingCategoryId" v-model:include-scores="ratingIncludeScores" v-model:package="ratingPackage" />
+    <RatingSettings :auto-package="importedPackage" v-model:category-id="ratingCategoryId" v-model:include-scores="ratingIncludeScores" v-model:package="ratingPackage" />
 
     <QuizPleaseLoginDialog :open="isLoginOpen" :submit="login" @cancel="cancelLogin" />
 

@@ -78,7 +78,7 @@ describe('useGameSetupForm', () => {
   it('replaces teams on a repeated import, keeps rounds and sends the external id', async () => {
     const createGame = vi.fn().mockResolvedValue({ id: 'game-1' })
     const form = useGameSetupForm({ createGame, navigateToGame: vi.fn() })
-    const imported = { externalId: '01a19b42-0cc8-709f-8197-62881b0dbcdc', title: 'Квиз', packageNumber: '#25ким', teamNames: ['Совы', 'Ёжики'] }
+    const imported = { externalId: '01a19b42-0cc8-709f-8197-62881b0dbcdc', title: 'Квиз', teamNames: ['Совы', 'Ёжики'] }
 
     form.setRoundsCount(4)
     form.applyImport(imported)
@@ -89,7 +89,8 @@ describe('useGameSetupForm', () => {
     expect(createGame).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Квиз',
       externalId: imported.externalId,
-      ratingPackage: '#25ким',
+      // The server fills the package from the imported game.
+      ratingPackage: null,
       teamNames: ['Совы', 'Ёжики']
     }))
     expect(createGame.mock.calls[0][0].rounds).toHaveLength(4)
@@ -99,7 +100,7 @@ describe('useGameSetupForm', () => {
     const form = useGameSetupForm({ createGame: vi.fn(), navigateToGame: vi.fn() })
 
     form.teams.value[0].name = 'Manual'
-    form.applyImport({ externalId: 'id', title: 'Квиз', packageNumber: null, teamNames: [] })
+    form.applyImport({ externalId: 'id', title: 'Квиз', teamNames: [] })
 
     expect(form.title.value).toBe('Квиз')
     expect(form.teams.value.map((team) => team.name)).toEqual(['Manual', ''])

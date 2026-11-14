@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Rules\RatingCategory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateGameRequest extends FormRequest
 {
@@ -19,6 +20,20 @@ class UpdateGameRequest extends FormRequest
             'ratingCategoryId' => ['sometimes', 'nullable', 'integer', new RatingCategory],
             'ratingIncludeScores' => ['sometimes', 'boolean'],
             'ratingPackage' => ['sometimes', 'nullable', 'string', 'max:255'],
+        ];
+    }
+
+    // A linked game keeps its Quiz Please ID: changing or clearing it would orphan the rating data built on it.
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                $linkedId = $this->route('game')->external_id;
+
+                if ($linkedId !== null && $this->has('externalId') && strtolower((string) $this->input('externalId')) !== $linkedId) {
+                    $validator->errors()->add('externalId', 'Игра уже привязана к «Квиз, плиз!», ID изменить нельзя.');
+                }
+            },
         ];
     }
 
